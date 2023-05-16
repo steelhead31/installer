@@ -361,7 +361,6 @@ def uploadDebArtifacts(String buildArch) {
 def uploadRpmArtifacts(String DISTRO, String rpmArch) {
     def distro_Package = [
         'redhat' : [
-            'rpm/centos/7',
             'rpm/rocky/8',
             'rpm/rhel/7',
             'rpm/rhel/8',
