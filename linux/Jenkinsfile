@@ -373,7 +373,6 @@ def uploadRpmArtifacts(String DISTRO, String rpmArch) {
 
         ],
         'suse'   : [
-            'rpm/sles/12',
             'rpm/sles/15'
         ]
     ]
