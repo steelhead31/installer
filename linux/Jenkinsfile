@@ -372,7 +372,6 @@ def uploadRpmArtifacts(String DISTRO, String rpmArch) {
         'ppc64le': 'ppc64le',
         's390x'  : 's390x'
     ]
-    
     // if VERSION is 8 or 20 remove s390x from the list
     if (VERSION == '8' || VERSION == '20') {
         rpmArchList.remove('s390x')
@@ -389,11 +388,6 @@ def uploadRpmArtifacts(String DISTRO, String rpmArch) {
     // Enable upload src.rpm
     if ( params.uploadSRCRPM.toBoolean() || params.DISTRO == 'all' ) {
         rpmArchList.put('source', 'src')
-        rpmArchList.remove('x86_64')
-        rpmArchList.remove('armv7hl')
-        rpmArchList.remove('aarch64')
-        rpmArchList.remove('ppc64le')
-        rpmArchList.remove('s390x')
     }
 
     packageDirs.each { packageDir ->
