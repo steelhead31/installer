@@ -20,7 +20,6 @@
 %global vers_arch x64
 %global vers_arch2 ppc64le
 %global vers_arch3 aarch64
-%global vers_arch4 s390x
 %global vers_arch5 riscv64
 %global src_num 0
 %global sha_src_num 1
@@ -29,7 +28,6 @@
 %global vers_arch x64
 %global vers_arch2 ppc64le
 %global vers_arch3 aarch64
-%global vers_arch4 s390x
 %global vers_arch5 riscv64
 %global src_num 2
 %global sha_src_num 3
@@ -38,7 +36,6 @@
 %global vers_arch x64
 %global vers_arch2 ppc64le
 %global vers_arch3 aarch64
-%global vers_arch4 s390x
 %global vers_arch5 riscv64
 %global src_num 4
 %global sha_src_num 5
@@ -47,7 +44,6 @@
 %global vers_arch x64
 %global vers_arch2 ppc64le
 %global vers_arch3 aarch64
-%global vers_arch4 s390x
 %global vers_arch5 riscv64
 %global src_num 6
 %global sha_src_num 7
@@ -56,7 +52,6 @@
 %global vers_arch x64
 %global vers_arch2 ppc64le
 %global vers_arch3 aarch64
-%global vers_arch4 s390x
 %global vers_arch5 riscv64
 %global src_num 8
 %global sha_src_num 9
@@ -81,7 +76,7 @@ Packager:    Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>
 AutoReqProv: no
 Prefix: %{_libdir}/jvm/%{name}
 
-ExclusiveArch: x86_64 ppc64le aarch64 s390x riscv64
+ExclusiveArch: x86_64 ppc64le aarch64 riscv64
 
 BuildRequires:  tar
 BuildRequires:  wget
@@ -118,9 +113,6 @@ Source3: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK22U-jre_%{vers_ar
 # Third architecture (aarch64)
 Source4: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK22U-jre_%{vers_arch3}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
 Source5: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK22U-jre_%{vers_arch3}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
-# Fourth architecture (s390x)
-Source6: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK22U-jre_%{vers_arch4}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
-Source7: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK22U-jre_%{vers_arch4}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
 # Fifth architecture (riscv64)
 Source8: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK22U-jre_%{vers_arch5}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
 Source9: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK22U-jre_%{vers_arch5}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
