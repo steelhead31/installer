@@ -220,7 +220,7 @@ pipeline {
 
                     if (versparser.matches()) {
                         Release = versparser[0][1].toInteger()
-                        Version = versparser[0][2] ? versparser[0][2] : null
+                        Version = versparser[0][2] ? versparser[0][2] : "null"
                         Build = versparser[0][3]
                         } else {
                          error("Version string format is invalid: ${PVERS}")
