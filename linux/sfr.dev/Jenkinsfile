@@ -211,10 +211,7 @@ pipeline {
                                 error("Unsupported dist: ${PDIST}")
                                 }
                       DISTS_TO_BUILD.each { DistArrayElement ->
-                      
-                      // def versionPattern = /^(\d+(?:\.\d+)*)_(.+)$/
-                      // def versparser = (PVERS =~ versionPattern)
-
+                   
                       def versionPattern = /^(\d+)(?:\.(.*))?_(.+)$/
                       def versparser = (PVERS =~ versionPattern)
 
@@ -222,29 +219,12 @@ pipeline {
                         def Release = versparser[0][1].toInteger()
                         def Version = versparser[0][2] ? versparser[0][2] : null
                         def Build = versparser[0][3]
-
-                        echo "First Element: ${Release}"
-                        echo "Second Element: ${Version != null ? Version : 'null'}"
-                        echo "Third Element: ${Build}"
                         } else {
                          error("Version string format is invalid: ${PVERS}")
                      }
 
-
-                    // if (versparser.matches()) {
-                    //     def Release = versparser[0][1]
-                    //     // def Version = versparser[0][2] ?: null
-                    //     def Version = (Release.contains('.')) ? Release.split('\\.')[1] : null
-                    //     def Build = versparser[0][2]
-                       
-                    //     echo "Release: ${Release}"
-                    //     echo "Version: ${Version != null ? Version : 'null'}"
-                    //     echo "Build: ${Build}"
-                    // } else {
-                    //     error("Version string format is invalid: ${PVERS}")
-                    // }
                       // Usage: ./generate_spec_file.sh DISTRIBUTION PACKAGE_TYPE VERSION ARCH
-                      def speccmd = "./generate_spec_file.sh ${DistArrayElement} ${PTYPE} ${PVERS} ${PARCH}"
+                      def speccmd = "./generate_spec_file.sh ${DistArrayElement} ${PTYPE} ${Release} ${PARCH}"
                       echo "Spec Command : ${speccmd}"
                       //def Sharesult = sh(script: Shacommand, returnStatus: true)
                       }
