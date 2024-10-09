@@ -227,7 +227,7 @@ pipeline {
                      }
 
                       // Usage: ./generate_spec_file.sh DISTRIBUTION PACKAGE_TYPE VERSION ARCH
-                      def speccmd = "./generate_spec_file.sh ${DistArrayElement} ${PTYPE} ${Release} ${PARCH}"
+                      def speccmd = "./generate_spec_file.sh ${DistArrayElement} ${PTYPE} ${PARCH} ${Release} ${Version} ${Build}"
                       echo "Spec Command : ${speccmd}"
                       //def Sharesult = sh(script: Shacommand, returnStatus: true)
                       }
