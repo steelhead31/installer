@@ -1,7 +1,7 @@
 ARG CONTAINER_REGISTRY=""
 
 FROM ${CONTAINER_REGISTRY}alpine
-ENV GOSU_VERSION 1.19
+ENV GOSU_VERSION 1.14
 
 RUN set -eux; \
 	\
@@ -15,7 +15,19 @@ RUN set -eux; \
   		msttcorefonts-installer \
     		fontconfig \
 		ttf-dejavu \
-		wget
+  		musl-dev \
+    		xvfb \
+                libxrender \
+		libxi \
+  		libxtst \
+    		procps \
+      		libx11 \
+		libxext \
+  		freetype \
+    		zlib \
+      		fakeroot \
+		gnupg \
+		wget \
 
 # Update Font Cache
 RUN update-ms-fonts
