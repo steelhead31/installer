@@ -14,6 +14,7 @@ RUN set -eux; \
 		sudo \
   		msttcorefonts-installer \
     		fontconfig \
+		ttf-dejavu \
 		wget
 
 # Create unprivileged user for building, see
