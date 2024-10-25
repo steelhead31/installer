@@ -27,6 +27,8 @@ RUN set -eux; \
     		zlib \
       		fakeroot \
 		gnupg \
+  		java-common \
+		java-cacerts \
 		wget
 
 # Update Font Cache
