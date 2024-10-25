@@ -12,6 +12,8 @@ RUN set -eux; \
 		doas \
 		dpkg \
 		sudo \
+  		msttcorefonts-installer \
+    		fontconfig \
 		wget
 
 # Create unprivileged user for building, see
