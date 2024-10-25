@@ -27,7 +27,7 @@ RUN set -eux; \
     		zlib \
       		fakeroot \
 		gnupg \
-		wget \
+		wget
 
 # Update Font Cache
 RUN update-ms-fonts
