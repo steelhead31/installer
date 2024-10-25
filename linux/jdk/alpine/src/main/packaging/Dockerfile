@@ -17,6 +17,9 @@ RUN set -eux; \
 		ttf-dejavu \
 		wget
 
+# Update Font Cache
+RUN update-ms-fonts
+
 # Create unprivileged user for building, see
 # https://github.com/hexops/dockerfile#use-a-static-uid-and-gid
 RUN adduser -D -h /home/builder builder \
