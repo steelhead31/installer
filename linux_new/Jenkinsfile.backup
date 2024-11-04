@@ -1,0 +1,435 @@
+/* Used By Jenkins Job sfr-build-linux-package-modular */
+
+/* Constant Declarations */
+
+def NODE_LABEL = 'build&&linux&&x64&&dockerBuild&&dynamicAzure' // Default node
+def PRODUCT = 'temurin'
+def JVM = 'hotspot'
+def baseURL = "https://github.com/adoptium/"
+def binaryRepo = "${params.Version.replace('jdk', 'temurin')}-binaries/releases/tag/${params.Tag}"
+def binaryDLRepo = "${params.Version.replace('jdk', 'temurin')}-binaries/releases/download/${params.Tag}"
+def fullURL = "${baseURL}/${binaryRepo}"
+def dlURL = "${baseURL}/${binaryDLRepo}"
+
+// Global Variables
+def DLfilenames = []
+def JDKArray = []
+def ModifiedJDKArray = []
+def distro = ""
+def arch = ""
+def ReleaseVersion = ""
+def Release = ""
+def Version = ""
+def Build = ""
+
+/* Pipeline Declaration */
+
+pipeline {
+    agent {
+        label NODE_LABEL
+    }
+    tools {
+        jfrog 'jfrog-cli'
+    }
+    options {
+        timeout(time: 2, unit: 'HOURS')
+    }
+
+      parameters {
+          string(name: 'Tag', defaultValue: 'jdk-23+37', description: 'Release Tag')
+          string(name: 'Version', defaultValue: 'jdk23', description: 'Release Version')
+          string(name: 'Artifacts_To_Copy', defaultValue: '**/alpine-linux/aarch64/temurin/*.tar.gz,**/alpine-linux/aarch64/temurin/*.zip,**/alpine-linux/aarch64/temurin/*.sha256.txt,**/alpine-linux/aarch64/temurin/*.msi,**/alpine-linux/aarch64/temurin/*.pkg,**/alpine-linux/aarch64/temurin/*.json,**/alpine-linux/aarch64/temurin/*.sig', description: 'Artifacts String')
+          booleanParam(name: 'Release', defaultValue: false, description: 'Release Flag' )
+          booleanParam(name: 'Dry_Run', defaultValue: false, description: 'Release Dry Run')
+      }
+
+      stages {
+          stage('Print Parameters') {
+              steps {
+                  script {
+                      echo "Tag : ${params.Tag}"
+                      echo "Version : ${params.Version}"
+                      echo "Artifacts : ${params.Artifacts_To_Copy}"
+                      echo "Release : ${params.Release}"
+                      echo "Dry Run : ${params.Dry_Run}"
+                  }
+              }
+          }
+          stage('Process Parameters') {
+            when {
+                expression { return params.Release }
+            }
+            steps {
+                script{
+                    // Figure Out Which Dist This Run Is For
+
+                    if (params.Artifacts_To_Copy.contains('alpine-linux')) {
+                        distro  = "alpine-linux"
+                    } else if (params.Artifacts_To_Copy.contains('linux')) {
+                        distro = "linux"
+                    } else {
+                        error("The Artifacts Are For Neither Linux OR Alpine")
+                    }
+
+                    // Figure Out Which Arch This Run Is For
+                    if (params.Artifacts_To_Copy.contains('aarch64')) {
+                        arch  = "aarch64"
+                    } else if (params.Artifacts_To_Copy.contains('x64')) {
+                        arch  = "x64"
+                    } else {
+                        error("The Artifacts Are For An Unsupported Architecture")
+                    }
+
+                    // Version Number Parsing
+
+                    def vername = ''
+                    def verversion = ''
+                    def verbuild = ''
+
+                    // Add Special Handling For JDK8 Version Number
+                    // jdk8u432-b06
+
+                    if (params.Tag?.startsWith("jdk8")) {
+                        echo "JDK 8"
+                        def split = (params.Tag =~ /(jdk)(\d+u\d+)-(b\d+)/)
+                        if (split.find()) {
+                            // println("Full Match: ${split[0][0]}")
+                            vername = split[0][1]          // "jdk"
+                            verversion = split[0][2]       // "8u432"
+                            verbuild = split[0][3]         // "06"
+                            } else {
+                                 error("The version string format does not match the expected pattern.")
+                        }
+                    } else {
+                        echo "Not JDK8"
+                    // Parse The Version Tag, Into Usable Components
+                    
+                    def split = (params.Tag =~ /(jdk)-(\d[\d.]*)([+_]\d+)?/)
+
+                    if (split.find()) {
+                        vername = split.group(1)
+                        verversion = split.group(2)
+                        verbuild = split.group(3)?.replaceAll("[+_]", "")
+                    } else {
+                        error("The version string format does not match the expected pattern.")
+                    }
+
+                    }
+
+                    // Debug 00
+                    echo "Debug 00"
+                    echo "01 - Vername = ${vername}"
+                    echo "02 - VerVer  = ${verversion}"
+                    echo "03 - VerBLD  = ${verbuild}"
+
+                    // Construct the Filename
+                    def filennameFinal =""
+                    def filenamePrefix = "Open"
+                    def filenameSuffix = "tar.gz"
+                    def filenameVersion = params.Version.toUpperCase() + "U"
+                    def packageTypes = ['jdk', 'jre']
+
+                    packageTypes.each { packageType ->
+                      if (params.Tag?.startsWith("jdk8")) {
+                        filenameFinal = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${JVM}_${verversion}${verbuild ?: 'N/A'}"
+                        ReleaseVersion = "${verversion}${verbuild ?: 'N/A'}"
+                      } else {
+                        filenameFinal = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${JVM}_${verversion}_${verbuild ?: 'N/A'}"
+                        ReleaseVersion = "${verversion}_${verbuild ?: 'N/A'}"
+                      }
+                      
+                      def JDKFinal = "${filenameFinal}.${filenameSuffix}"
+                      def SHAFinal = "${JDKFinal}.sha256.txt"
+                      
+                      // ReleaseVersion = "${verversion}_${verbuild ?: 'N/A'}"
+                      
+                      echo "JDK File Name : ${JDKFinal}"
+                      echo "SHA File Name : ${SHAFinal}"
+                      DLfilenames << JDKFinal
+                      DLfilenames << SHAFinal
+
+                      JDKArray << [ "${packageType}" , "${JDKFinal}", "${SHAFinal}" , "${distro}" , "${arch}" , "${ReleaseVersion}" ]
+                    }
+                }
+            }
+          }
+          stage('Validate Artifacts') {
+            when {
+                expression { return params.Release }
+            }
+              steps {
+                  script {
+                    echo "Validating Artifacts"
+                    // Debugging
+                    echo "Tuples :"
+                    echo "${JDKArray}"
+
+                    JDKArray.each { ArrayElement ->
+                      def PTYPE = ArrayElement[0]
+                      def PFILE = ArrayElement[1]
+                      def PSIGN = ArrayElement[2]
+                      def PDIST = ArrayElement[3]
+                      def PARCH = ArrayElement[4]
+                      def PVERS = ArrayElement[5]
+
+                      // Prepare For Downloads & Verification
+                      def Binurl = "${dlURL}/${PFILE}"
+                      def SHAurl = "${dlURL}/${PSIGN}"
+                      def Bincommand = "curl -sSL -O ${Binurl}"
+                      def Shacommand = "curl -sSL -O ${SHAurl}"
+
+                      echo "Downloading Binary: ${Binurl}"
+                      // echo "Command : ${Bincommand}"
+                      // Download Binary
+
+                      def Binresult = sh(script: Bincommand, returnStatus: true)
+
+                      if (Binresult != 0) {
+                        error("Failed to download ${PFILE}. File not found or an error occurred.")
+                        } else {
+                            echo "Downloaded: ${PFILE}"
+                        }
+
+                      echo "Downloading Signature: ${SHAurl}"
+                      //echo "Command : ${Shacommand}"
+                      // Download SHA
+                      def Sharesult = sh(script: Shacommand, returnStatus: true)
+                      if (Sharesult != 0) {
+                        error("Failed to download ${PSIGN}. File not found or an error occurred.")
+                        } else {
+                            echo "Downloaded: ${PSIGN}"
+                        }
+
+                        // Validate Checksum Of Binary Using Signature
+
+                        def expectedChecksum = sh(script: "cat ${PSIGN} | awk '{print \$1}'", returnStdout: true).trim()
+                        def calculatedChecksum = sh(script: "sha256sum ${PFILE} | awk '{print \$1}'", returnStdout: true).trim()
+                        if (expectedChecksum != calculatedChecksum) {
+                            error("Checksum mismatch for ${PFILE}. Expected: ${expectedChecksum}, but found: ${calculatedChecksum}.")
+                            } else {
+                            echo "Checksum validation successful for ${PFILE}."
+                            }
+                        // Remove This Later
+                        sh "rm -rf ${PFILE}"
+                        sh "rm -rf ${PSIGN}"
+                        // Remove
+                        // Create New Array With Checksum & URL Added
+                        ModifiedJDKArray << [ "${PTYPE}" , "${PFILE}" , "${PSIGN}" , "${PDIST}" , "${PARCH}" , "${PVERS}" , "${calculatedChecksum}" , "${Binurl}" ]
+                    }
+                    // Assign Modified Array Back To Initial Array
+                    JDKArray = ModifiedJDKArray
+                  }
+              }
+          }
+          stage('Generate Spec File') {
+            when {
+                expression { return params.Release }
+            }
+              steps {
+                  script {
+                      echo "Validating Required Parameters For Generate Spec File Program"
+                      echo "Debug 01"
+                      JDKArray.each { ArrayElement ->
+                      echo "${ArrayElement}"
+                      // Assign Tuple Values To Vars
+                      def PTYPE = ArrayElement[0]
+                      def PFILE = ArrayElement[1]
+                      def PSIGN = ArrayElement[2]
+                      def PDIST = ArrayElement[3]
+                      def PARCH = ArrayElement[4]
+                      def PVERS = ArrayElement[5]
+                      def PCSUM = ArrayElement[6]
+                      def PKURL = ArrayElement[7]
+                      def DISTS_TO_BUILD = []
+
+                      // Setup List Of Packages To Build
+                      if (PDIST == 'alpine-linux') {
+                         DISTS_TO_BUILD = ['alpine']
+                        } else if (PDIST == 'linux') {
+                            DISTS_TO_BUILD = ['rhel', 'suse', 'debian']
+                            } else {
+                                error("Unsupported dist: ${PDIST}")
+                                }
+                      DISTS_TO_BUILD.each { DistArrayElement ->
+
+                      echo "Debug 02"
+                      if (params.Tag?.startsWith("jdk8")) {
+                        echo "Debug 02a"
+                        echo "PVERS : ${PVERS}"
+
+                        def versionPattern = /(\d+)(u\d+)(b\d+)/
+                        def versparser = (PVERS =~ versionPattern)
+                        println("Full Match: ${versparser[0][0]}")
+                        if (versparser.matches()) {
+                            println("Full Match: ${versparser[0][0]}")
+                            Release = versparser[0][1]
+                            Version = versparser[0][2]
+                            Build = versparser[0][3]
+                            } else {
+                                error("The version string format does not match the expected pattern.")
+                                }
+                      } else {
+                        def versionPattern = /^(\d+)(?:\.(.*))?_(.+)$/
+                        def versparser = (PVERS =~ versionPattern)
+                        if (versparser.matches()) {
+                          Release = versparser[0][1].toInteger()
+                          Version = versparser[0][2] ? versparser[0][2] : "null"
+                          Build = versparser[0][3]
+                        } else {
+                            error("Version string format is invalid: ${PVERS}")
+                          }
+                      }
+                      
+                      def TemplateType = ArrayElement[0]
+                      def packagever
+                      def packagearch = PARCH
+                      def templatebase
+                      def outputfile
+                    
+                      // Python Script Requires 7 arguments
+                      // 1. Template name
+                      // 2. Package Version (in correct format)
+                      // 3. Package Architecture (in correct format)
+                      // 4. Package URL
+                      // 5. Package Checksum
+                      // 6. Package Filename
+                      // 7. Output Filename
+
+                      // Figure Out Template name
+                      templatebase = "./linux/${PTYPE}/${DistArrayElement}/src/main/packaging/temurin/${Release}/${DistArrayElement}.${PTYPE}${Release}.template.j2"
+
+                      // Reformat Any Variables For Distribution Specific Oddities
+
+                      if (DistArrayElement == 'alpine') {
+                        
+                        // If Base Format Reqd = 23_p37 ( Upstream jdk-23+37 )
+                        // If Updt Format Reqd = 23.0.1_p11 ( Upstream jdk-23.0.1+11 )
+                        // If JKD8 Format Reqd = 8.432.06 ( Upstream jdk8u432b06 )
+                        // Upstream Arch For Alpine : **/alpine-linux/x64/temurin/*.tar.gz,**/alpine-linux/x64/temurin/*.zip,**/alpine-linux/x64/temurin/*.sha256.txt,**/alpine-linux/x64/temurin/*.msi,**/alpine-linux/x64/temurin/*.pkg,**/alpine-linux/x64/temurin/*.json,**/alpine-linux/x64/temurin/*.sig
+                        // Upstream Arch For Alpine ARM : **/alpine-linux/aarch64/temurin/*.tar.gz,**/alpine-linux/aarch64/temurin/*.zip,**/alpine-linux/aarch64/temurin/*.sha256.txt,**/alpine-linux/aarch64/temurin/*.msi,**/alpine-linux/aarch64/temurin/*.pkg,**/alpine-linux/aarch64/temurin/*.json,**/alpine-linux/aarch64/temurin/*.sig
+                        
+                        if (Version == "null") {
+                            packagever = "${Release}_p${Build}"
+                        } else {
+                            packagever = "${Release}_${Version}_p${Build}"
+                        }
+
+                        if (Release == "8" ) {
+                            // Regular expression to split around 'u' and 'b'
+                            def versionPattern = /(\d+)(u)(\d+)(b)(\d+)/
+                            def versparser = (PVERS =~ versionPattern)
+                            if (versparser.matches()) {
+                                Release = versparser[0][1]   // Capture before 'u', e.g., "8"
+                                Version = versparser[0][3]   // Capture between 'u' and 'b', e.g., "432"
+                                Build = versparser[0][5]     // Capture after 'b', e.g., "06"
+                                } else {
+                                    error("The version string format does not match the expected pattern.")
+                                    }
+                            packagever = "${Release}.${Version}.${Build}"
+                        }
+                        // Reformat x64 For Alpine
+                        if (PARCH == 'x64') {
+                            packagearch = "x86_64"
+                        }
+                        outputfile = "APKBUILD"
+
+                        echo "Debug 03"
+                        echo "Python 1 : Template Path = : ${templatebase}"
+                        echo "Python 2 : Package Version = : ${packagever}"
+                        echo "Python 3 : Package Arch = : ${packagearch}"
+                        echo "Python 4 : Package URL = : ${PKURL}"
+                        echo "Python 5 : Package Checksum = : ${PCSUM}"
+                        echo "Python 6 : Package Name = : ${PFILE}"
+                        echo "Python 7 : Output File Name = : ${outputfile}"
+
+                        // Check If Template Exists
+                        if (!fileExists(templatebase)) {
+                          error("Template File Not Found At : ${templatebase}")
+                        }
+
+                        def speccmd = "python3 linux/generate_spec.py ${templatebase} ${packagever} ${packagearch} ${PKURL} ${PCSUM} ${PFILE} ${outputfile}"
+                        echo "Spec Command : ${speccmd}"
+                        def genresult = sh(script: speccmd, returnStatus: true)
+                        echo "Result : ${genresult}"
+                      } 
+
+                      if (DistArrayElement == 'debian') {
+                        
+                        echo "Debug 03"
+                        // If Base Format Reqd = xxxxxx ( Upstream jdk-23+37 )
+                        // If Updt Format Reqd = xxxxxx ( Upstream jdk-23.0.1+11 )
+                        // Upstream Arch For x64 : **/linux/x64/temurin/*.tar.gz,**/linux/x64/temurin/*.zip,**/linux/x64/temurin/*.sha256.txt,**/linux/x64/temurin/*.msi,**/linux/x64/temurin/*.pkg,**/linux/x64/temurin/*.json,**/linux/x64/temurin/*.sig
+                        // Upstream Arch For ARM64 : **/linux/aarch64/temurin/*.tar.gz,**/linux/aarch64/temurin/*.zip,**/linux/aarch64/temurin/*.sha256.txt,**/linux/aarch64/temurin/*.msi,**/linux/aarch64/temurin/*.pkg,**/linux/aarch64/temurin/*.json,**/linux/aarch64/temurin/*.sig
+                        // Upstream Arch For s390x : **/linux/s390x/temurin/*.tar.gz,**/linux/s390x/temurin/*.zip,**/linux/s390x/temurin/*.sha256.txt,**/linux/s390x/temurin/*.msi,**/linux/s390x/temurin/*.pkg,**/linux/s390x/temurin/*.json,**/linux/s390x/temurin/*.sig
+                        // Upstream Arch For ppc64le : **/linux/ppc64le/temurin/*.tar.gz,**/linux/ppc64le/temurin/*.zip,**/linux/ppc64le/temurin/*.sha256.txt,**/linux/ppc64le/temurin/*.msi,**/linux/ppc64le/temurin/*.pkg,**/linux/ppc64le/temurin/*.json,**/linux/ppc64le/temurin/*.sig
+                        // Upstream Arch For RISCV : **/linux/riscv64/temurin/*.tar.gz,**/linux/riscv64/temurin/*.zip,**/linux/riscv64/temurin/*.sha256.txt,**/linux/riscv64/temurin/*.msi,**/linux/riscv64/temurin/*.pkg,**/linux/riscv64/temurin/*.json,**/linux/riscv64/temurin/*.sig
+                        // Upstream Arch For ARM32 : **/linux/arm/temurin/*.tar.gz,**/linux/arm/temurin/*.zip,**/linux/arm/temurin/*.sha256.txt,**/linux/arm/temurin/*.msi,**/linux/arm/temurin/*.pkg,**/linux/arm/temurin/*.json,**/linux/arm/temurin/*.sig
+                        
+                        // if (Version == "null") {
+                        //     packagever = "${Release}_p${Build}"
+                        // } else {
+                        //     packagever = "${Release}_${Version}_p${Build}"
+                        // }    
+                        
+                        // Set Output File Name
+                        // outputfile = "APKBUILD"
+
+                        // echo "Debug 02"
+                        // echo "Python 1 : Template Path = : ${templatebase}"
+                        // echo "Python 2 : Package Version = : ${packagever}"
+                        // echo "Python 3 : Package Arch = : ${packagearch}"
+                        // echo "Python 4 : Package URL = : ${PKURL}"
+                        // echo "Python 5 : Package Checksum = : ${PCSUM}"
+                        // echo "Python 6 : Package Name = : ${PFILE}"
+                        // echo "Python 7 : Output File Name = : ${outputfile}"
+
+                        // // Check If Template Exists
+                        // if (!fileExists(templatebase)) {
+                        //   error("Template File Not Found At : ${templatebase}")
+                        // }
+
+                        // def speccmd = "python3 linux/generate_spec.py ${templatebase} ${packagever} ${packagearch} ${PKURL} ${PCSUM} ${PFILE} ${outputfile}"
+                        // echo "Spec Command : ${speccmd}"
+                        // def genresult = sh(script: speccmd, returnStatus: true)
+                        // echo "Result : ${genresult}"
+                      } 
+
+                      }
+
+                      }
+                  }
+              }
+          }
+          stage('Build & Archive Package') {
+            when {
+                expression { return params.Release }
+            }
+              steps {
+                  script {
+                      echo "Build Packages"
+
+                  }
+              }
+          }
+          stage('Publish Packages') {
+            when {
+                expression { return params.Release }
+            }
+              steps {
+                  script {
+                      echo "Publish Packages"
+                  }
+              }
+          }
+          stage('Store Spec File') {
+            when {
+                expression { return params.Release }
+            }
+              steps {
+                  script {
+                      echo "Store Spec File"
+                  }
+              }
+          }
+      }
+  }

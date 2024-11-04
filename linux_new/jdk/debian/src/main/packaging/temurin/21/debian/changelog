@@ -1,0 +1,41 @@
+temurin-21-jdk (21.0.5.0.0+11-1) STABLE; urgency=medium
+
+  * Eclipse Temurin 21.0.5.0.0+11-1 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Wed, 16 Oct 2024 00:00:00 +0000
+
+temurin-21-jdk (21.0.4.0.0+7-1) STABLE; urgency=medium
+
+  * Eclipse Temurin 21.0.4.0.0+7-1 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Wed, 17 Jul 2024 00:00:00 +0000
+
+temurin-21-jdk (21.0.3.0.0+9-1) STABLE; urgency=medium
+
+  * Eclipse Temurin 21.0.3.0.0+9-1 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Wed, 17 Apr 2024 00:00:00 +0000
+
+temurin-21-jdk (21.0.2.0.0+13-2) STABLE; urgency=medium
+
+  * Eclipse Temurin 21.0.2.0.0+13-2 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Wed, 21 Feb 2024 00:00:00 +0000
+
+temurin-21-jdk (21.0.2.0.0+13) STABLE; urgency=medium
+
+  * Eclipse Temurin 21.0.2.0.0+13 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Tue, 23 Jan 2024 00:00:00 +0000
+
+temurin-21-jdk (21.0.1.0.0+12) STABLE; urgency=medium
+
+  * Eclipse Temurin 21.0.1.0.0+12 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Tue, 24 Oct 2023 11:59:00 +0000
+
+temurin-21-jdk (21.0.0.0.0+35) STABLE; urgency=medium
+
+  * Eclipse Temurin 21.0.0.0.0+35 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Wed, 20 Sep 2023 09:00:00 +0000
