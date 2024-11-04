@@ -70,7 +70,7 @@ pipeline {
                     } else {
                         error("The Artifacts Are For Neither Linux OR Alpine")
                     }
-                    
+
                     // Figure Out Which Arch This Run Is For
                     if (params.Artifacts_To_Copy.contains('aarch64')) {
                         arch  = "aarch64"
@@ -140,19 +140,19 @@ pipeline {
                       def SHAurl = "${dlURL}/${PSIGN}"
                       def Bincommand = "curl -sSL -O ${Binurl}"
                       def Shacommand = "curl -sSL -O ${SHAurl}"
-                      
+
                       echo "Downloading Binary: ${Binurl}"
                       // echo "Command : ${Bincommand}"
                       // Download Binary
 
                       def Binresult = sh(script: Bincommand, returnStatus: true)
-                      
+
                       if (Binresult != 0) {
                         error("Failed to download ${PFILE}. File not found or an error occurred.")
                         } else {
                             echo "Downloaded: ${PFILE}"
                         }
-                      
+
                       echo "Downloading Signature: ${SHAurl}"
                       //echo "Command : ${Shacommand}"
                       // Download SHA
@@ -162,9 +162,9 @@ pipeline {
                         } else {
                             echo "Downloaded: ${PSIGN}"
                         }
-                        
+
                         // Validate Checksum Of Binary Using Signature
-                        
+
                         def expectedChecksum = sh(script: "cat ${PSIGN} | awk '{print \$1}'", returnStdout: true).trim()
                         def calculatedChecksum = sh(script: "sha256sum ${PFILE} | awk '{print \$1}'", returnStdout: true).trim()
                         if (expectedChecksum != calculatedChecksum) {
@@ -214,7 +214,7 @@ pipeline {
                                 error("Unsupported dist: ${PDIST}")
                                 }
                       DISTS_TO_BUILD.each { DistArrayElement ->
-                   
+
                       def versionPattern = /^(\d+)(?:\.(.*))?_(.+)$/
                       def versparser = (PVERS =~ versionPattern)
 
@@ -226,12 +226,12 @@ pipeline {
                          error("Version string format is invalid: ${PVERS}")
                      }
 
-                      // Usage: ./generate_spec_file.sh DISTRIBUTION PACKAGE_TYPE VERSION ARCH
-                      def speccmd = "./generate_spec_file.sh ${DistArrayElement} ${PTYPE} ${PARCH} ${Release} ${Version} ${Build}"
+                      // Usage: ./generate_spec_file.sh DISTRIBUTION PACKAGE_TYPE ARCH VERSION
+                      def speccmd = "python generate_spec.py ${DistArrayElement} ${PTYPE} ${PARCH} ${Release} ${Version} ${Build}"
                       echo "Spec Command : ${speccmd}"
                       //def Sharesult = sh(script: Shacommand, returnStatus: true)
                       }
- 
+
                       }
                   }
               }
@@ -269,4 +269,3 @@ pipeline {
           }
       }
   }
-
