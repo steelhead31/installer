@@ -1,0 +1,101 @@
+temurin-11-jdk (11.0.25.0.0+9) STABLE; urgency=medium
+
+  * Eclipse Temurin 11.0.25.0.0+9 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Wed, 16 Oct 2024 00:00:00 +0000
+
+temurin-11-jdk (11.0.24.0.0+8) STABLE; urgency=medium
+
+  * Eclipse Temurin 11.0.24.0.0+8 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Wed, 17 Jul 2024 00:00:00 +0000
+
+temurin-11-jdk (11.0.23.0.0+9) STABLE; urgency=medium
+
+  * Eclipse Temurin 11.0.23.0.0+9 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Wed, 17 Apr 2024 00:00:00 +0000
+
+temurin-11-jdk (11.0.22.0.0+7) STABLE; urgency=medium
+
+  * Eclipse Temurin 11.0.22.0.0+7release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Tue, 23 Jan 2024 00:00:00 +0000
+
+temurin-11-jdk (11.0.21.0.0+9) STABLE; urgency=medium
+
+  * Eclipse Temurin 11.0.20.1.0+1release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Thu, 26 Oct 2023 08:00:00 +0000
+
+temurin-11-jdk (11.0.20.1.0+1) STABLE; urgency=medium
+
+  * Eclipse Temurin 11.0.20.1.0+1release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Thu, 31 Aug 2023 08:00:00 +0000
+
+temurin-11-jdk (11.0.20.0.0+8) STABLE; urgency=medium
+
+  * Eclipse Temurin 11.0.20.0.0+8 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Tue, 25 Jul 2023 11:59:00 +0000
+
+temurin-11-jdk (11.0.19.0.0+7) STABLE; urgency=medium
+
+  * Eclipse Temurin 11.0.19.0.0+7 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Wed, 26 Jan 2023 16:16:20 +0000
+
+temurin-11-jdk (11.0.18.0.0+10) STABLE; urgency=medium
+
+  * Eclipse Temurin 11.0.18.0.0+10 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Wed, 18 Jan 2023 09:43:20 +0000
+
+temurin-11-jdk (11.0.17.0.0+8-1) STABLE; urgency=medium
+
+  * Add Ubuntu Kinetic (22.10) to the list of supported Ubuntu releases.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Tue, 06 Dec 2022 15:42:00 +0000
+
+ temurin-11-jdk (11.0.17.0.0+8) STABLE; urgency=medium
+
+  * Eclipse Temurin 11.0.17.0.0+8 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Tue, 25 Oct 2022 11:40:20 +0000
+
+temurin-11-jdk (11.0.16.1.0+1) STABLE; urgency=medium
+
+  * Eclipse Temurin 11.0.16.1.0+1 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Tue, 23 Aug 2022 17:19:22 +0000
+
+temurin-11-jdk (11.0.16.0.0+8) STABLE; urgency=medium
+
+  * Eclipse Temurin 11.0.16.0.0+8 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Tue, 26 Jul 2022 17:19:22 +0000
+
+temurin-11-jdk (11.0.15.0.0+10) UNRELEASED; urgency=medium
+
+  * Eclipse Temurin 11.0.15.0.0+10 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Wed, 27 Apr 2022 17:09:22 +0000
+
+temurin-11-jdk (11.0.14.1.0+9-1) UNRELEASED; urgency=medium
+
+  * Eclipse Temurin 11.0.14.1.0+9-1 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Thu, 10 Feb 2022 16:09:22 +0000
+
+temurin-11-jdk (11.0.14.0.0+9-1) UNRELEASED; urgency=medium
+
+  * Eclipse Temurin 11.0.14.0.0+9-1 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Tue, 1 Feb 2022 10:20:21 +0000
+
+ temurin-11-jdk (11.0.13.0.0+8-1) UNRELEASED; urgency=medium
+
+  * Eclipse Temurin 11.0.13.0.0+8-1 release.
+
+ -- Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>  Fri, 13 Aug 2021 14:32:55 +0000
