@@ -558,6 +558,11 @@ pipeline {
                         echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
                         echo "Python 10: Upstream Version = : ${upstreamversion}"
 
+                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\""
+                        echo "Spec Command : ${speccmd}"
+                        // def genresult = sh(script: speccmd, returnStatus: true)
+                        // echo "Result : ${genresult}"
+
 
                         // End Of RHEL SUSE CODE
                       }
