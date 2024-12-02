@@ -524,12 +524,13 @@ pipeline {
                             def versparser = (PVERS =~ /(\d+)u(\d+)b(\d+)/)
                             def minor = versparser[0][2]  // Extract '432'
                             def build = versparser[0][3].replaceAll(/^0+/, '')    // Extract '6'
-                            def formattedBuild = build < 10 ? String.format('%02d', build) : "${build}"
+                            def formattedBuild = build.toString()padLeft(2, '0')
                             // Construct the new format
                             packagever = "${major}.0.${minor}.0.0.${build}"
                             changelogversion = "${major}.0.${minor}-b${formattedBuild}"
                         } else {
                             echo "RHEL/SUSE Not JDK8"
+                            def formattedBuild = build.toString()padLeft(2, '0')
                             if (Version == "null") {
                                 packagever = "${Release}.0.0.0.0.${build}"
                                 changelogversion = "${Release}.0.${minor}+${formattedBuild}"
