@@ -2,13 +2,13 @@
 # Only [A-Za-z0-9.] allowed in version:
 # https://docs.fedoraproject.org/en-US/packaging-guidelines/Versioning/#_upstream_uses_invalid_characters_in_the_version
 # also not very intuitive:
-#  $ rpmdev-vercmp 23.0.0.0.0___23.0.0.0.0+1
-#  23.0.0.0.0___1 == 23.0.0.0.0+37
+#  $ rpmdev-vercmp 21.0.0.0.0___21.0.0.0.0+1
+#  21.0.0.0.0___1 == 21.0.0.0.0+35
 %global spec_version {{ package_version }}
 %global spec_release {{ package_release_version }}
-%global priority 2300
+%global priority 1161
 
-%global source_url_base https://github.com/adoptium/temurin23-binaries/releases/download
+%global source_url_base https://github.com/adoptium/temurin21-binaries/releases/download
 %global upstream_version_url %(echo %{upstream_version} | sed 's/\+/%%2B/g')
 %global upstream_version_no_plus %(echo %{upstream_version} | sed 's/\+/_/g')
 %global java_provides openjdk
@@ -20,10 +20,10 @@
 %global src_num 0
 %global sha_src_num 1
 
-Name:        temurin-23-jdk
+Name:        temurin-21-jdk
 Version:     %{spec_version}
 Release:     %{spec_release}
-Summary:     Eclipse Temurin 23 JDK
+Summary:     Eclipse Temurin 21 JDK
 
 Group:       java
 License:     GPLv2 with exceptions
@@ -63,12 +63,12 @@ Requires: fontconfig%{?_isa}
 Requires: libfreetype6%{?_isa}
 
 Provides: java
-Provides: java-23
-Provides: java-23-devel
-Provides: java-23-headless
-Provides: java-23-%{java_provides}
-Provides: java-23-%{java_provides}-devel
-Provides: java-23-%{java_provides}-headless
+Provides: java-21
+Provides: java-21-devel
+Provides: java-21-headless
+Provides: java-21-%{java_provides}
+Provides: java-21-%{java_provides}-devel
+Provides: java-21-%{java_provides}-headless
 Provides: java-devel
 Provides: java-devel-%{java_provides}
 Provides: java-headless
@@ -76,8 +76,8 @@ Provides: java-%{java_provides}
 Provides: java-%{java_provides}-devel
 Provides: java-%{java_provides}-headless
 Provides: java-sdk
-Provides: java-sdk-23
-Provides: java-sdk-23-%{java_provides}
+Provides: java-sdk-21
+Provides: java-sdk-21-%{java_provides}
 Provides: java-sdk-%{java_provides}
 
 # First architecture ({{ hardware_architecture }})

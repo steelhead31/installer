@@ -24,8 +24,11 @@ def Release = ""
 def Version = ""
 def Build = ""
 def packagearch = ""
+def packagearchDeb = ""
+def packagearchRhel = ""
 def PackageReleaseVersion = "0"
 def upstreamversion = ""
+def upstreamversionARM32 = ""
 
 
 /* Pipeline Declaration */
@@ -107,6 +110,32 @@ pipeline {
                                       (arch == 's390x') ? 'docker&&s390x&&dockerBuild' :
                                       (arch == 'riscv64') ? 'dockerbuild&&linux&&riscv64' :
                                       'unknown'
+                    
+                    // Derive The Package Specific Arch's based on the arch deduced from file paths
+                    // Fix Architectures To Be Debian Control File Compatible
+                    // s390x and riscv64 are OK
+                    // Reqd: amd64 armhf arm64 ppc64el
+
+                        packagearchDeb = (arch == 'x64') ? 'amd64' :
+                                         (arch == 'arm') ? 'armhf' :
+                                         (arch == 'aarch64') ? 'arm64' :
+                                         (arch == 'ppc64le') ? 'ppc64el' :
+                                         (arch == 's390x') ? 's390x' :
+                                         (arch == 'riscv64') ? 'riscv64' :
+                                         'unknown'
+
+                    // Fix Architectures To Be RHEL/Suse Control File Compatible
+                    // s390x and riscv64 are OK
+                    // Reqd: x64 armv7hl aarch64 ppc64le
+
+                        packagearchRhel = (arch == 'x64') ? 'x64' :
+                                          (arch == 'arm') ? 'armv7hl' :
+                                          (arch == 'aarch64') ? 'aarch64' :
+                                          (arch == 'ppc64le') ? 'ppc64le' :
+                                          (arch == 's390x') ? 's390x' :
+                                          (arch == 'riscv64') ? 'riscv64' :
+                                          'unknown'
+
 
                     // Version Number Parsing
 
@@ -247,6 +276,16 @@ pipeline {
                             error("Checksum mismatch for ${PFILE}. Expected: ${expectedChecksum}, but found: ${calculatedChecksum}.")
                             } else {
                             echo "Checksum validation successful for ${PFILE}."
+                            if (PARCH == "arm") {
+                                echo "DEBUGZZ"
+                                // Extract upstream version from the tar file
+                                upstreamversionARM32 = sh(
+                                    script: "tar xvfz \"${PFILE}\" | head -n 1 | cut -d/ -f1",
+                                    returnStdout: true).trim()
+                                // Remove the extracted directory safely
+                                sh "rm -rf \"${upstreamversionARM32}\""
+                                echo "UPS = ${upstreamversionARM32}"
+                             }
                             }
                         // Remove This Later
                         sh "rm -rf ${PFILE}"
@@ -257,8 +296,6 @@ pipeline {
                     }
                     // Assign Modified Array Back To Initial Array
                     JDKArray = ModifiedJDKArray
-
-
                   }
               }
           }
@@ -399,6 +436,7 @@ pipeline {
                         echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
                         echo "Python 10: JDK Upstream Version = : ${upstreamversion}"
                         echo "Python 11 : Changelog Version = :${packagever}"
+                        echo "Python 12: ARM32 Version = ${upstreamversion}"
 
                         // Figure Out Template name
                         templatebase = "./linux_new/${PTYPE}/${DistArrayElement}/src/main/packaging/${PRODUCT}/${Release}/${DistArrayElement}.${PTYPE}${Release}.template.j2"
@@ -408,7 +446,7 @@ pipeline {
                           error("Template File Not Found At : ${templatebase}")
                         }
 
-                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${packagever}\""
+                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${packagever}\" \"${upstreamversion}\""
                         echo "Spec Command : ${speccmd}"
                         def genresult = sh(script: speccmd, returnStatus: true)
                         echo "Result : ${genresult}"
@@ -449,19 +487,6 @@ pipeline {
                             }
                         }
 
-                        // Fix Architectures To Be Debian Control File Compatible
-                        // s390x and riscv64 are OK
-                        // Reqd: amd64 armhf arm64 ppc64el
-                        // Actl: x64 arm aarch64 ppc64le
-
-                        packagearch = (PARCH == 'x64') ? 'amd64' :
-                                      (PARCH == 'arm') ? 'armhf' :
-                                      (PARCH == 'aarch64') ? 'arm64' :
-                                      (PARCH == 'ppc64le') ? 'ppc64el' :
-                                      (PARCH == 's390x') ? 's390x' :
-                                      (PARCH == 'riscv64') ? 'riscv64' :
-                                      'unknown'
-                        
                         // Override Build Dists For Debian
                         PKGBUILDLABEL = (PARCH == 'x64') ? 'build&&linux&&x64&&dockerBuild&&dynamicAzure' :
                                         (PARCH == 'aarch64') ? 'armv8&&build&&dockerBuild&&dockerhost' :
@@ -495,7 +520,7 @@ pipeline {
                         echo "Debug 08"
                         echo "Python 1 : Template Path = : ${templatebase}"
                         echo "Python 2 : Package Version = : ${packagever}"
-                        echo "Python 3 : Package Arch = : ${packagearch}"
+                        echo "Python 3 : Package Arch = : ${packagearchDeb}"
                         echo "Python 4 : Package URL = : ${PKURL}"
                         echo "Python 5 : Package Checksum = : ${PCSUM}"
                         echo "Python 6 : Package Name = : ${PFILE}"
@@ -504,8 +529,9 @@ pipeline {
                         echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
                         echo "Python 10: Upstream Version = : ${upstreamversion}"
                         echo "Python 11: Changelog Version = : ${packagever}"
+                        echo "Python 12: ARM32 Version = ${upstreamversion}"
 
-                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${packagever}\""
+                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearchDeb}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${packagever}\" \"${upstreamversion}\""
                         echo "Spec Command : ${speccmd}"
                         def genresult = sh(script: speccmd, returnStatus: true)
                         echo "Result : ${genresult}"
@@ -533,16 +559,30 @@ pipeline {
                             def formattedBuild = build.toString()padLeft(2, '0')
                             if (Version == "null") {
                                 packagever = "${Release}.0.0.0.0.${build}"
-                                changelogversion = "${Release}.0.${minor}+${formattedBuild}"
+                                changelogversion = "${Release}.0.${minor}+${build}"
                             } else {
                                 packagever = "${Release}.${version}.0.${build}"
-                                changelogversion = "${Release}.0.${minor}+${formattedBuild}"
+                                changelogversion = "${Release}.0.${minor}+${build}"
                             }
                         }
+
+                        // Override Build Dists For RHEL ( always builds on x64 )
+                        PKGBUILDLABEL = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
 
                         // Figure Out Upstream Version
 
                         upstreamversion = params.Tag.replaceFirst("^jdk", "")
+
+                        if (PARCH == 'arm') {
+                        // If JDK8 ARM32, Then Need To Deduce Correct Upstream
+                        echo "DEBUG00A - Get ARM32 Upstream Version #"
+                        echo "PARCH = ${PARCH}"
+                        upstreamversionARM32 = upstreamversionARM32.replaceFirst("^jdk", "")
+                        upstreamversionARM32 = upstreamversionARM32.replaceAll(/-(jre|jdk)$/, "")
+                        echo "Upstream ARM32 : ${upstreamversionARM32}"
+                        echo "upstreamVersion : ${upstreamversion}"
+                        // DONE
+                        }
 
                         // Figure Out Changelog Version
                         // JDK8   = 8.0.432-b06
@@ -561,7 +601,7 @@ pipeline {
                         echo "Debug - 09a - PackageVer = ${packagever}"
                         echo "Python 1 : Template Path = : ${templatebase}"
                         echo "Python 2 : Package Version = : ${packagever}"
-                        echo "Python 3 : Package Arch = : ${packagearch}"
+                        echo "Python 3 : Package Arch = : ${packagearchRhel}"
                         echo "Python 4 : Package URL = : ${PKURL}"
                         echo "Python 5 : Package Checksum = : ${PCSUM}"
                         echo "Python 6 : Package Name = : ${PFILE}"
@@ -570,12 +610,12 @@ pipeline {
                         echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
                         echo "Python 10: Upstream Version = : ${upstreamversion}"
                         echo "Python 11: Changelog Version = : ${changelogversion}"
+                        echo "Python 12: Upstream ARM32 Version = : ${upstreamversionARM32}"
 
-                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDateRHEL}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${changelogversion}\""
+                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearchRhel}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDateRHEL}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${changelogversion}\" \"${upstreamversionARM32}\""
                         echo "Spec Command : ${speccmd}"
-                        // def genresult = sh(script: speccmd, returnStatus: true)
-                        // echo "Result : ${genresult}"
-
+                        def genresult = sh(script: speccmd, returnStatus: true)
+                        echo "Result : ${genresult}"
 
                         // End Of RHEL SUSE CODE
                       }
@@ -618,7 +658,6 @@ pipeline {
                           // Docker --mount option requires BuildKit
                           env.DOCKER_BUILDKIT = 1
                           env.COMPOSE_DOCKER_CLI_BUILD = 1
-                          env._JAVA_OPTIONS = (packagearch == 'armv7l' && pkDist == 'Debian') ? '' : '-Xmx4g'
                           
                           // Prepare Workspace
                           cleanWs()
@@ -662,16 +701,17 @@ pipeline {
 
                         if (DistArrayElement == 'debian') {
                           echo "Debug 11 - Debian Gradle Prep"
+                          env._JAVA_OPTIONS = (packagearchDeb == 'armv7l' && pkDist == 'Debian') ? '' : '-Xmx4g'
                           try {
                             def PackagesToBuild = ['jdk', 'jre' ]
                                 PackagesToBuild.each { PackageArrayElement ->
-                                  echo "PackageArch = ${packagearch}"
+                                  echo "PackageArch = ${packagearchDeb}"
                                   echo "Building Debian Package For ${PackageArrayElement}"
                                   // Construct Gradle Build Task Variable
-                                  def gBuildTask = (packagearch in ['x86_64', 'amd64']) ? "package${PackageArrayElement}${DistArrayElement} check${PackageArrayElement}${DistArrayElement}" : "package${PackageArrayElement}${DistArrayElement}"
+                                  def gBuildTask = (packagearchDeb in ['x86_64', 'amd64']) ? "package${PackageArrayElement}${DistArrayElement} check${PackageArrayElement}${DistArrayElement}" : "package${PackageArrayElement}${DistArrayElement}"
                                   echo "Gradle Build Task : ${gBuildTask}"
                                    // Construct Gradle Build Command Line
-                                  def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearch}"
+                                  def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchDeb}"
                                   // Add signing if enabled to Gradle Build Command Line
                                   if (params.enableGpgSigning) {
                                     def privateKey = 'adoptium-artifactory-rsa-key'
@@ -693,6 +733,44 @@ pipeline {
                                   archiveArtifacts artifacts: '**/build/ospackage/*,**/build/reports/**,**/packageTest/dependencies/deb/*', onlyIfSuccessful:false, allowEmptyArchive: false
                               }
                         }
+
+                        // Start Of Rhel/Suse
+
+                        if (DistArrayElement == "rhel" || DistArrayElement == "suse") {
+                          echo "Debug 09C - RHEL/SUSE Gradle Prep"
+                          try {
+                            def PackagesToBuild = ['jdk', 'jre' ]
+                                PackagesToBuild.each { PackageArrayElement ->
+                                  echo "PackageArch = ${packagearchRhel}"
+                                  echo "Building ${DistArrayElement} Package For ${PackageArrayElement}"
+                                  // Construct Gradle Build Task Variable
+                                  def gBuildTask = (packagearchRhel in ['x86_64', 'amd64']) ? "package${PackageArrayElement}${DistArrayElement} check${PackageArrayElement}${DistArrayElement}" : "package${PackageArrayElement}${DistArrayElement}"
+                                  echo "Gradle Build Task : ${gBuildTask}"
+                                   // Construct Gradle Build Command Line   
+                                  def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchRhel}"
+                                  // Add signing if enabled to Gradle Build Command Line
+                                  if (params.enableGpgSigning) {
+                                    def privateKey = 'adoptium-artifactory-rsa-key'
+                                    withCredentials([file(credentialsId: privateKey, variable: 'GPG_KEY')]) {
+                                        buildCli += " -PGPG_KEY_PATH=${GPG_KEY}"
+                                        }
+                                    }
+                                    
+                                  // Add gradle debugging if enabled
+                                  buildCli = params.enableDebug.toBoolean() ? buildCli + ' --stacktrace' : buildCli
+                                  echo "Build CLI : ${buildCli}"
+                                  sh("$buildCli")
+                                } 
+                              } catch (Exception ex) {
+                                echo 'Exception in buildAndTest: ' + ex
+                                currentBuild.result = 'FAILURE'  // set the whole pipeline 'red' if build or test fail. Do not use "error" that will not call "finally"
+                              } finally {
+                                  // should not allow empty archive, otherwise nothing created in the previous step: package and test result( not needed )
+                                  archiveArtifacts artifacts: '**/build/ospackage/*,**/build/reports/**,**/packageTest/dependencies/deb/*', onlyIfSuccessful:false, allowEmptyArchive: false
+                              }
+                        }
+
+                        // End Of Rhel/Suse
 
                         
                      }

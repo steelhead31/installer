@@ -61,6 +61,9 @@ done;
 
 # Copy generated SRPMS, RPMs to destination folder
 find /home/builder/rpmbuild/SRPMS /home/builder/rpmbuild/RPMS -type f -name "*.rpm" -print0 | xargs -0 -I {} cp {} /home/builder/out
+# Rename Src RPM To Include Architecture
+cd /home/builder/out/ && for file in `ls -1 *.src.rpm`; do filename=`basename -s .src.rpm $file` ; SRCTarget="$filename.${buildArch}.src.rpm" ; mv $file $SRCTarget ; done && cd -
+
 # Sign generated RPMs with rpmsign.
 if grep -q %_gpg_name /home/builder/.rpmmacros; then
 	rm -f ~/.gnupg/public-keys.d/pubring.db.lock
