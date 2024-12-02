@@ -524,7 +524,6 @@ pipeline {
                             def versparser = (PVERS =~ /(\d+)u(\d+)b(\d+)/)
                             def minor = versparser[0][2]  // Extract '432'
                             def build = versparser[0][3].replaceAll(/^0+/, '')    // Extract '6'
-                            build = "11"
                             def formattedBuild = build.toString()padLeft(2, '0')
                             // Construct the new format
                             packagever = "${major}.0.${minor}.0.0.${build}"
