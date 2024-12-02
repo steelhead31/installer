@@ -53,7 +53,7 @@ def render_template(template_path, package_version, hardware_architecture, packa
         package_name=package_name,
         current_date=current_date,
         package_release_version=package_release_version,
-        upstream_version=upstream_version
+        upstream_version=upstream_version,
         changelog_version=changelog_version
     )
 
