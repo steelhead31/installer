@@ -288,7 +288,9 @@ pipeline {
                       def getDate = new Date(currentBuild.startTimeInMillis)
                       // Format The Date
                       def currentDate = getDate.format("EEE, dd MMM yyyy HH:mm:ss Z", TimeZone.getTimeZone('UTC'))
+                      def currentDateRHEL = getDate.format("EEE MMM dd yyyy", TimeZone.getTimeZone('UTC'))
                       echo "Current Date: ${currentDate}"
+                      echo "Current Date RHEL: ${currentDateRHEL}"
 
                       // Setup List Of Packages To Build
                       if (PDIST == 'alpine-linux') {
@@ -552,7 +554,7 @@ pipeline {
                         echo "Python 5 : Package Checksum = : ${PCSUM}"
                         echo "Python 6 : Package Name = : ${PFILE}"
                         echo "Python 7 : Output File Name = : ${outputfile}"
-                        echo "Python 8 : Current Date = : ${currentDate}"
+                        echo "Python 8 : Current Date = : ${currentDateRHEL}"
                         echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
                         echo "Python 10: Upstream Version = : ${upstreamversion}"
 
