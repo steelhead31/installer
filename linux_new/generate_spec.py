@@ -31,7 +31,8 @@ def render_template(template_path, package_version, hardware_architecture, packa
         package_name (str): The filename of the package binary.
         output_file_name (str): The name of the output file to save the rendered content.
         current_date (str): The date to be used for changelogs etc.
-        package_release_version (str): The package release version
+        package_release_version (str): The package release version.
+        upstream_version (str): The upstream release version
     """
     # Get the directory of the template file and set the output file path in the same directory
     template_dir = os.path.dirname(template_path)

@@ -288,7 +288,7 @@ pipeline {
                       def getDate = new Date(currentBuild.startTimeInMillis)
                       // Format The Date
                       def currentDate = getDate.format("EEE, dd MMM yyyy HH:mm:ss Z", TimeZone.getTimeZone('UTC'))
-                      def currentDateRHEL = getDate.format("EEE MMM dd yyyy", TimeZone.getTimeZone('UTC'))
+                      def currentDateRHEL = getDate.format("EEE MMM d yyyy", TimeZone.getTimeZone('UTC'))
                       echo "Current Date: ${currentDate}"
                       echo "Current Date RHEL: ${currentDateRHEL}"
 
@@ -547,7 +547,6 @@ pipeline {
                         }
 
                         echo "Debug - 09a - PackageVer = ${packagever}"
-                        echo "Python 0 : Upstream Vers = ${upstreamversion}"
                         echo "Python 1 : Template Path = : ${templatebase}"
                         echo "Python 2 : Package Version = : ${packagever}"
                         echo "Python 3 : Package Arch = : ${packagearch}"
