@@ -335,6 +335,7 @@ pipeline {
                       packagearch = PARCH
                       def templatebase
                       def outputfile
+                      def changelogversion
                     
                       // Python Script Requires 9 arguments
                       // 1. Template name
@@ -397,6 +398,7 @@ pipeline {
                         echo "Python 8 : Current Date = : ${currentDate}"
                         echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
                         echo "Python 10: JDK Upstream Version = : ${upstreamversion}"
+                        echo "Python 11 : Changelog Version = :${packagever}"
 
                         // Figure Out Template name
                         templatebase = "./linux_new/${PTYPE}/${DistArrayElement}/src/main/packaging/${PRODUCT}/${Release}/${DistArrayElement}.${PTYPE}${Release}.template.j2"
@@ -406,7 +408,7 @@ pipeline {
                           error("Template File Not Found At : ${templatebase}")
                         }
 
-                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\""
+                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${packagever}\""
                         echo "Spec Command : ${speccmd}"
                         def genresult = sh(script: speccmd, returnStatus: true)
                         echo "Result : ${genresult}"
@@ -501,8 +503,9 @@ pipeline {
                         echo "Python 8 : Current Date = : ${currentDate}"
                         echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
                         echo "Python 10: Upstream Version = : ${upstreamversion}"
+                        echo "Python 11: Changelog Version = : ${packagever}"
 
-                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\""
+                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${packagever}\""
                         echo "Spec Command : ${speccmd}"
                         def genresult = sh(script: speccmd, returnStatus: true)
                         echo "Result : ${genresult}"
@@ -523,18 +526,25 @@ pipeline {
                             def build = versparser[0][3].replaceAll(/^0+/, '')    // Extract '6'
                             // Construct the new format
                             packagever = "${major}.0.${minor}.0.0.${build}"
+                            changelogversion = "${major}.0.${minor}-b${build}"
                         } else {
                             echo "RHEL/SUSE Not JDK8"
                             if (Version == "null") {
-                                packagever = "${Release}.0.0.0.0.${Build}"
+                                packagever = "${Release}.0.0.0.0.${build}"
+                                changelogversion = "${Release}.0.${minor}+${build}"
                             } else {
-                                packagever = "${Release}.${Version}.0.${Build}"
+                                packagever = "${Release}.${version}.0.${build}"
+                                changelogversion = "${Release}.0.${minor}+${Build}"
                             }
                         }
 
                         // Figure Out Upstream Version
 
                         upstreamversion = params.Tag.replaceFirst("^jdk", "")
+
+                        // Figure Out Changelog Version
+                        // JDK8   = 8.0.432-b06
+                        // JDK11+ = 11.0.12+7
 
                         // Figure Out Template name
                         templatebase = "./linux_new/${PTYPE}/${DistArrayElement}/src/main/packaging/${PRODUCT}/${Release}/${PRODUCT}-${Release}-${PTYPE}.template.j2"
@@ -557,8 +567,9 @@ pipeline {
                         echo "Python 8 : Current Date = : ${currentDateRHEL}"
                         echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
                         echo "Python 10: Upstream Version = : ${upstreamversion}"
+                        echo "Python 11: Changelog Version = : ${changelogversion}"
 
-                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDateRHEL}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\""
+                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDateRHEL}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${changelogversion}\""
                         echo "Spec Command : ${speccmd}"
                         // def genresult = sh(script: speccmd, returnStatus: true)
                         // echo "Result : ${genresult}"
