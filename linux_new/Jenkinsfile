@@ -4,10 +4,10 @@
 
 def NODE_LABEL = 'build&&linux&&x64&&dockerBuild&&dynamicAzure' // Default node
 def PRODUCT = 'temurin'
-def JVM = 'hotspot'
+  def JVM = 'hotspot'
 def baseURL = "https://github.com/adoptium/"
-def binaryRepo = "${params.Version.replace('jdk', 'temurin')}-binaries/releases/tag/${params.Tag}"
-def binaryDLRepo = "${params.Version.replace('jdk', 'temurin')}-binaries/releases/download/${params.Tag}"
+def binaryRepo = "${params.VERSION.replace('jdk', 'temurin')}-binaries/releases/tag/${params.TAG}"
+def binaryDLRepo = "${params.VERSION.replace('jdk', 'temurin')}-binaries/releases/download/${params.TAG}"
 def fullURL = "${baseURL}/${binaryRepo}"
 def dlURL = "${baseURL}/${binaryDLRepo}"
 def PKGBUILDLABEL=""
@@ -24,12 +24,83 @@ def Release = ""
 def Version = ""
 def Build = ""
 def packagearch = ""
+def packagearchDeb = ""
+def packagearchRhel = ""
 def PackageReleaseVersion = "0"
 def upstreamversion = ""
+def upstreamversionARM32 = ""
+/* Have Some Default Node Labels */
+def PKGBUILDLABELAPK = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+def PKGBUILDLABELDEB = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+def PKGBUILDLABELRHEL = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+
+// Function Definitions Begin
+
+// Helper function to download and validate files
+def validateAndDownloadArtifact(url, file) {
+    echo "Downloading: ${url}"
+    def result = sh(script: "curl -sSL -O ${url}", returnStatus: true)
+    if (result != 0) {
+        error("Failed to download ${file}. File not found or an error occurred.")
+    }
+    echo "Downloaded: ${file}"
+}
+
+// Helper function to validate checksum
+def validateChecksum(file, checksumFile) {
+    def expectedChecksum = sh(script: "awk '{print \$1}' ${checksumFile}", returnStdout: true).trim()
+    def calculatedChecksum = sh(script: "sha256sum ${file} | awk '{print \$1}'", returnStdout: true).trim()
+    if (expectedChecksum != calculatedChecksum) {
+        error("Checksum mismatch for ${file}. Expected: ${expectedChecksum}, but found: ${calculatedChecksum}.")
+    }
+    echo "Checksum validation successful for ${file}."
+    return calculatedChecksum
+}
+
+// Helper function to extract upstream version from tar file
+def extractUpstreamVersionFromTar(file) {
+    def version = sh(script: "tar xvfz \"${file}\" | head -n 1 | cut -d/ -f1", returnStdout: true).trim()
+    sh "rm -rf \"${version}\""
+    echo "Extracted upstream version: ${version}"
+    return version
+}
+
+// Helper function to cleanup files
+def cleanupFiles(files) {
+    files.each { file ->
+        sh "rm -rf ${file}"
+    }
+}
+
+// Helper function to Set Node Labels
+def getPackageBuildLabel(String arch, String distro) {
+    switch (distro) {
+        case 'APK':
+            return (arch == 'x64') ? 'build&&linux&&x64&&dockerBuild&&dynamicAzure' :
+                   (arch == 'aarch64') ? 'docker&&linux&&aarch64&&alpineInstaller' :
+                   'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+
+        case 'DEB':
+            return (arch == 'x64') ? 'build&&linux&&x64&&dockerBuild&&dynamicAzure' :
+                   (arch == 'arm') ? 'docker&&linux&&aarch64' :
+                   (arch == 'aarch64') ? 'docker&&linux&&aarch64' :
+                   (arch == 'ppc64le') ? 'build&&docker&&ppc64le' :
+                   (arch == 's390x') ? 'docker&&s390x&&dockerBuild' :
+                   (arch == 'riscv64') ? 'dockerBuild&&linux&&riscv64&&dockerInstaller' :
+                   
+                   'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+
+        case 'RHEL':
+            return 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+
+        default:
+            error("Unsupported distro: ${distro}")
+    }
+}
+// Function Definitions End
 
 
 /* Pipeline Declaration */
-
 pipeline {
     agent none  // No Default Agent
     options {
@@ -37,60 +108,63 @@ pipeline {
     }
 
       parameters {
-          string(name: 'Tag', defaultValue: 'jdk-23+37', description: 'Release Tag')
-          string(name: 'Version', defaultValue: 'jdk23', description: 'Release Version')
-          string(name: 'Artifacts_To_Copy', defaultValue: '**/alpine-linux/aarch64/temurin/*.tar.gz,**/alpine-linux/aarch64/temurin/*.zip,**/alpine-linux/aarch64/temurin/*.sha256.txt,**/alpine-linux/aarch64/temurin/*.msi,**/alpine-linux/aarch64/temurin/*.pkg,**/alpine-linux/aarch64/temurin/*.json,**/alpine-linux/aarch64/temurin/*.sig', description: 'Artifacts String')
-          booleanParam(name: 'Release', defaultValue: false, description: 'Release Flag' )
-          booleanParam(name: 'Dry_Run', defaultValue: false, description: 'Release Dry Run')
-          booleanParam(name: 'enableGpgSigning', defaultValue: true, description: 'Require GPG Signing')
-          booleanParam(name: 'enableDebug', defaultValue: false, description: 'Tick to enable --stacktrace for gradle build')
-          booleanParam(name: 'RePackage', defaultValue: false, description: 'Tick if this is a republish of an existing package, ie xx.xxx.2 , rather than the base release of a package (1)')
-          string(name: 'Package_Increment', defaultValue: '1', description: 'This is the incremental number used for re-releases of package versions - Should be set appropriately if RePackage is True')
+          string(name: 'TAG', defaultValue: 'jdk-23+37', description: 'Release Tag')
+          string(name: 'VERSION', defaultValue: 'jdk23', description: 'Release Version')
+          string(name: 'ARTIFACTS_TO_COPY', defaultValue: '**/alpine-linux/aarch64/temurin/*.tar.gz,**/alpine-linux/aarch64/temurin/*.zip,**/alpine-linux/aarch64/temurin/*.sha256.txt,**/alpine-linux/aarch64/temurin/*.msi,**/alpine-linux/aarch64/temurin/*.pkg,**/alpine-linux/aarch64/temurin/*.json,**/alpine-linux/aarch64/temurin/*.sig', description: 'Artifacts String')
+          booleanParam(name: 'RELEASE', defaultValue: false, description: 'Release Flag' )
+          booleanParam(name: 'DRY_RUN', defaultValue: false, description: 'Release Dry Run')
+          booleanParam(name: 'ENABLEGPGSIGNING', defaultValue: true, description: 'Require GPG Signing')
+          booleanParam(name: 'ENABLEDEBUG', defaultValue: false, description: 'Tick to enable --stacktrace for gradle build')
+          booleanParam(name: 'REPACKAGE', defaultValue: false, description: 'Tick if this is a republish of an existing package, ie xx.xxx.2 , rather than the base release of a package (1)')
+          string(name: 'PACKAGE_INCREMENT', defaultValue: '1', description: 'This is the incremental number used for re-releases of package versions - Should be set appropriately if RePackage is True')
       }
-
+// Stage Definition - Start
       stages {
+// Print Parameters Stage - Start
           stage('Print Parameters') {
             agent { label NODE_LABEL }
               steps {
                   script {
-                      echo "Tag : ${params.Tag}"
-                      echo "Version : ${params.Version}"
-                      echo "Artifacts : ${params.Artifacts_To_Copy}"
-                      echo "Release : ${params.Release}"
-                      echo "Dry Run : ${params.Dry_Run}"
+                      echo "Tag : ${params.TAG}"
+                      echo "Version : ${params.VERSION}"
+                      echo "Artifacts : ${params.ARTIFACTS_TO_COPY}"
+                      echo "Release : ${params.RELEASE}"
+                      echo "Dry Run : ${params.DRY_RUN}"
                   }
               }
           }
+// Print Parameters Stage - End
+// Process Parameters Stage - Start
           stage('Process Parameters') {
             agent { label NODE_LABEL }
-            when {
-                expression { return params.Release }
-            }
+            // when {
+            //     expression { return params.Release }
+            // }
             steps {
                 script{
 
                     // Figure Out Which Dist This Run Is For
 
-                    if (params.Artifacts_To_Copy.contains('alpine-linux')) {
+                    if (params.ARTIFACTS_TO_COPY.contains('alpine-linux')) {
                         distro  = "alpine-linux"
-                    } else if (params.Artifacts_To_Copy.contains('linux')) {
+                    } else if (params.ARTIFACTS_TO_COPY.contains('linux')) {
                         distro = "linux"
                     } else {
                         error("The Artifacts Are For Neither Linux OR Alpine")
                     }
 
                     // Figure Out Which Arch This Run Is For
-                    if (params.Artifacts_To_Copy.contains('aarch64')) {
+                    if (params.ARTIFACTS_TO_COPY.contains('aarch64')) {
                         arch  = "aarch64"
-                    } else if (params.Artifacts_To_Copy.contains('x64')) {
+                    } else if (params.ARTIFACTS_TO_COPY.contains('x64')) {
                         arch  = "x64"
-                    } else if (params.Artifacts_To_Copy.contains('s390x')) {
+                    } else if (params.ARTIFACTS_TO_COPY.contains('s390x')) {
                         arch  = "s390x"
-                    } else if (params.Artifacts_To_Copy.contains('arm')) {
+                    } else if (params.ARTIFACTS_TO_COPY.contains('arm')) {
                         arch  = "arm"
-                    } else if (params.Artifacts_To_Copy.contains('ppc64le')) {
+                    } else if (params.ARTIFACTS_TO_COPY.contains('ppc64le')) {
                         arch  = "ppc64le"
-                    } else if (params.Artifacts_To_Copy.contains('riscv64')) {
+                    } else if (params.ARTIFACTS_TO_COPY.contains('riscv64')) {
                         arch  = "riscv64"
                     } else {
                         error("The Artifacts Are For An Unsupported Architecture")
@@ -98,15 +172,30 @@ pipeline {
 
                     echo "DEBUG 00 - arch = ${arch}"
 
-                    // Derive The Build Arch Label For The Package Build Step
-                    // Note that Arm32 is built in a 32bit container on a 64 bit host
-                    PKGBUILDLABEL = (arch == 'x64') ? 'build&&linux&&x64&&dockerBuild&&dynamicAzure' :
-                                      (arch == 'arm') ? 'docker&&linux&&aarch64' : 
-                                      (arch == 'aarch64') ? 'docker&&linux&&aarch64' : 
-                                      (arch == 'ppc64le') ? 'build&&docker&&ppc64le' :
-                                      (arch == 's390x') ? 'docker&&s390x&&dockerBuild' :
-                                      (arch == 'riscv64') ? 'dockerbuild&&linux&&riscv64' :
+                    // Derive Node To Build Packages On
+
+                    PKGBUILDLABELAPK = getPackageBuildLabel(arch, 'APK')
+                    PKGBUILDLABELDEB = getPackageBuildLabel(arch, 'DEB')
+                    PKGBUILDLABELRHEL = getPackageBuildLabel(arch, 'RHEL')
+
+                    // Map Architectures From Source To Dist Suitable Values
+
+                    packagearchDeb = (arch == 'x64') ? 'amd64' :
+                                     (arch == 'arm') ? 'armhf' :
+                                     (arch == 'aarch64') ? 'arm64' :
+                                     (arch == 'ppc64le') ? 'ppc64el' :
+                                     (arch == 's390x') ? 's390x' :
+                                     (arch == 'riscv64') ? 'riscv64' :
+                                     'unknown'
+
+                    packagearchRhel = (arch == 'x64') ? 'x86_64' :
+                                      (arch == 'arm') ? 'armv7hl' :
+                                      (arch == 'aarch64') ? 'aarch64' :
+                                      (arch == 'ppc64le') ? 'ppc64le' :
+                                      (arch == 's390x') ? 's390x' :
+                                      (arch == 'riscv64') ? 'riscv64' :
                                       'unknown'
+
 
                     // Version Number Parsing
 
@@ -117,9 +206,9 @@ pipeline {
                     // Add Special Handling For JDK8 Version Number
                     // jdk8u432-b06
 
-                    if (params.Tag?.startsWith("jdk8")) {
+                    if (params.TAG?.startsWith("jdk8")) {
                         echo "JDK 8"
-                        def split = (params.Tag =~ /(jdk)(\d+u\d+)-(b\d+)/)
+                        def split = (params.TAG =~ /(jdk)(\d+u\d+)-(b\d+)/)
                         if (split.find()) {
                             // println("Full Match: ${split[0][0]}")
                             vername = split[0][1]          // "jdk"
@@ -132,7 +221,7 @@ pipeline {
                         echo "Not JDK8"
                     // Parse The Version Tag, Into Usable Components
                     
-                    def split = (params.Tag =~ /(jdk)-(\d[\d.]*)([+_]\d+)?/)
+                    def split = (params.TAG =~ /(jdk)-(\d[\d.]*)([+_]\d+)?/)
 
                     if (split.find()) {
                         vername = split.group(1)
@@ -144,20 +233,15 @@ pipeline {
 
                     }
 
-                    echo "Debug 01"
-                    echo "01 - Vername = ${vername}"
-                    echo "02 - VerVer  = ${verversion}"
-                    echo "03 - VerBLD  = ${verbuild}"
-
                     // Construct the Filename
                     def filennameFinal =""
                     def filenamePrefix = "Open"
                     def filenameSuffix = "tar.gz"
-                    def filenameVersion = params.Version.toUpperCase() + "U"
+                    def filenameVersion = params.VERSION.toUpperCase() + "U"
                     def packageTypes = ['jdk', 'jre']
 
                     packageTypes.each { packageType ->
-                      if (params.Tag?.startsWith("jdk8")) {
+                      if (params.TAG?.startsWith("jdk8")) {
                         filenameFinal = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${JVM}_${verversion}${verbuild ?: 'N/A'}"
                         ReleaseVersion = "${verversion}${verbuild ?: 'N/A'}"
                       } else {
@@ -168,8 +252,6 @@ pipeline {
                       def JDKFinal = "${filenameFinal}.${filenameSuffix}"
                       def SHAFinal = "${JDKFinal}.sha256.txt"
                       
-                      // ReleaseVersion = "${verversion}_${verbuild ?: 'N/A'}"
-                      
                       echo "JDK File Name : ${JDKFinal}"
                       echo "SHA File Name : ${SHAFinal}"
                       DLfilenames << JDKFinal
@@ -179,94 +261,58 @@ pipeline {
                     }
 
                     // Set Package Release Version If Repackage
-                    if (params.RePackage) {
-                        PackageReleaseVersion = params.Package_Increment
+                    if (params.REPACKAGE) {
+                        PackageReleaseVersion = params.PACKAGE_INCREMENT
                       }
-
-                      echo "Debug 01 - Parameters Including Pacakage Release Version"
-                      echo "Distro = ${distro}"
-                      echo "Product = ${PRODUCT}"
-                      echo "Package Release Version : ${PackageReleaseVersion}"
-                    
                 }
             }
           }
-          stage('Validate Artifacts') {
-            agent { label NODE_LABEL }
-            when {
-                expression { return params.Release }
+// Process Parameters Stage - End
+// Validate Artifacts Stage - Start
+stage('Validate Artifacts') {
+    agent { label NODE_LABEL }
+    // when {
+    //     expression { return params.RELEASE }
+    // }
+    steps {
+        script {
+            echo "Validating Artifacts"
+            echo "Tuples:"
+            echo "${JDKArray}"
+
+            JDKArray.each { ArrayElement ->
+                def (PTYPE, PFILE, PSIGN, PDIST, PARCH, PVERS) = ArrayElement
+                def Binurl = "${dlURL}/${PFILE}"
+                def SHAurl = "${dlURL}/${PSIGN}"
+
+                // Download binary and checksum
+                validateAndDownloadArtifact(Binurl, PFILE)
+                validateAndDownloadArtifact(SHAurl, PSIGN)
+
+                // Validate checksum
+                def calculatedChecksum = validateChecksum(PFILE, PSIGN)
+
+                if (PARCH == "arm") {
+                    upstreamversionARM32 = extractUpstreamVersionFromTar(PFILE)
+                }
+
+                // Cleanup temporary files
+                cleanupFiles([PFILE, PSIGN])
+
+                // Update array with the validated information
+                ModifiedJDKArray << [PTYPE, PFILE, PSIGN, PDIST, PARCH, PVERS, calculatedChecksum, Binurl]
             }
-              steps {
-                  script {
-                    echo "Validating Artifacts"
-                    // Debugging
-                    echo "Tuples :"
-                    echo "${JDKArray}"
 
-                    JDKArray.each { ArrayElement ->
-                      def PTYPE = ArrayElement[0]
-                      def PFILE = ArrayElement[1]
-                      def PSIGN = ArrayElement[2]
-                      def PDIST = ArrayElement[3]
-                      def PARCH = ArrayElement[4]
-                      def PVERS = ArrayElement[5]
-
-                      // Prepare For Downloads & Verification
-                      def Binurl = "${dlURL}/${PFILE}"
-                      def SHAurl = "${dlURL}/${PSIGN}"
-                      def Bincommand = "curl -sSL -O ${Binurl}"
-                      def Shacommand = "curl -sSL -O ${SHAurl}"
-
-                      echo "Downloading Binary: ${Binurl}"
-                      // echo "Command : ${Bincommand}"
-                      // Download Binary
-
-                      def Binresult = sh(script: Bincommand, returnStatus: true)
-
-                      if (Binresult != 0) {
-                        error("Failed to download ${PFILE}. File not found or an error occurred.")
-                        } else {
-                            echo "Downloaded: ${PFILE}"
-                        }
-
-                      echo "Downloading Signature: ${SHAurl}"
-                      //echo "Command : ${Shacommand}"
-                      // Download SHA
-                      def Sharesult = sh(script: Shacommand, returnStatus: true)
-                      if (Sharesult != 0) {
-                        error("Failed to download ${PSIGN}. File not found or an error occurred.")
-                        } else {
-                            echo "Downloaded: ${PSIGN}"
-                        }
-
-                        // Validate Checksum Of Binary Using Signature
-
-                        def expectedChecksum = sh(script: "cat ${PSIGN} | awk '{print \$1}'", returnStdout: true).trim()
-                        def calculatedChecksum = sh(script: "sha256sum ${PFILE} | awk '{print \$1}'", returnStdout: true).trim()
-                        if (expectedChecksum != calculatedChecksum) {
-                            error("Checksum mismatch for ${PFILE}. Expected: ${expectedChecksum}, but found: ${calculatedChecksum}.")
-                            } else {
-                            echo "Checksum validation successful for ${PFILE}."
-                            }
-                        // Remove This Later
-                        sh "rm -rf ${PFILE}"
-                        sh "rm -rf ${PSIGN}"
-                        // Remove
-                        // Create New Array With Checksum & URL Added
-                        ModifiedJDKArray << [ "${PTYPE}" , "${PFILE}" , "${PSIGN}" , "${PDIST}" , "${PARCH}" , "${PVERS}" , "${calculatedChecksum}" , "${Binurl}" ]
-                    }
-                    // Assign Modified Array Back To Initial Array
-                    JDKArray = ModifiedJDKArray
-
-
-                  }
-              }
-          }
+            JDKArray = ModifiedJDKArray
+        }
+    }
+}
+// Generate Spec File Stage - Start
           stage('Generate Spec File') {
             agent { label NODE_LABEL }
-            when {
-                expression { return params.Release }
-            }
+            // when {
+            //     expression { return params.RELEASE }
+            // }
               steps {
                   script {
                       echo "Validating Required Parameters For Generate Spec File Program"
@@ -303,7 +349,7 @@ pipeline {
                       DISTS_TO_BUILD.each { DistArrayElement ->
                       
                       echo "Debug 03"
-                      if (params.Tag?.startsWith("jdk8")) {
+                      if (params.TAG?.startsWith("jdk8")) {
                         echo "Debug 04"
                         echo "PVERS : ${PVERS}"
 
@@ -329,7 +375,7 @@ pipeline {
                             error("Version string format is invalid: ${PVERS}")
                           }
                       }
-                      
+
                       def TemplateType = ArrayElement[0]
                       def packagever
                       packagearch = PARCH
@@ -337,17 +383,19 @@ pipeline {
                       def outputfile
                       def changelogversion
                     
-                      // Python Script Requires 9 arguments
-                      // 1. Template name
-                      // 2. Package Version (in correct format)
-                      // 3. Package Architecture (in correct format)
-                      // 4. Package URL
-                      // 5. Package Checksum
-                      // 6. Package Filename
-                      // 7. Output Filename
-                      // 8. Current Date
-                      // 9. Package Release Version
-                      // 10. Code Upstream Version
+                      // Python Script Requires x arguments
+                      // template_path (str): Path to the J2 template file.
+                      // package_version (str): The JDK version for the package being built.
+                      // hardware_architecture (str): The hardware architecture for the package.
+                      // package_url (str): The URL of the GitHub binary file for this release.
+                      // package_checksum (str): The validated SHA256 checksum of the binary specified in the URL.
+                      // package_name (str): The filename of the package binary.
+                      // output_file_name (str): The name of the output file to save the rendered content.
+                      // current_date (str): The date to be used for changelogs etc.
+                      // package_release_version (str): The package release version.
+                      // upstream_version (str): The upstream release version.
+                      // changelog_version (str): The version to be used in the changelog version
+                      // upstreamarm32_version (str): The upstream version to be used for ARM32 on JDK8
 
                       // Reformat Any Variables For Distribution Specific Oddities
 
@@ -359,10 +407,14 @@ pipeline {
                         // Upstream Arch For Alpine : **/alpine-linux/x64/temurin/*.tar.gz,**/alpine-linux/x64/temurin/*.zip,**/alpine-linux/x64/temurin/*.sha256.txt,**/alpine-linux/x64/temurin/*.msi,**/alpine-linux/x64/temurin/*.pkg,**/alpine-linux/x64/temurin/*.json,**/alpine-linux/x64/temurin/*.sig
                         // Upstream Arch For Alpine ARM : **/alpine-linux/aarch64/temurin/*.tar.gz,**/alpine-linux/aarch64/temurin/*.zip,**/alpine-linux/aarch64/temurin/*.sha256.txt,**/alpine-linux/aarch64/temurin/*.msi,**/alpine-linux/aarch64/temurin/*.pkg,**/alpine-linux/aarch64/temurin/*.json,**/alpine-linux/aarch64/temurin/*.sig
                         
+                        echo "Debug 04"
+                        echo "Release = ${Release}"
+                        echo "Build = ${Build}"
+                        
                         if (Version == "null") {
                             packagever = "${Release}_p${Build}"
                         } else {
-                            packagever = "${Release}_${Version}_p${Build}"
+                            packagever = "${Release}.${Version}_p${Build}"
                         }
 
                         // Upstream Version Is Not Required For Alpine
@@ -399,6 +451,7 @@ pipeline {
                         echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
                         echo "Python 10: JDK Upstream Version = : ${upstreamversion}"
                         echo "Python 11 : Changelog Version = :${packagever}"
+                        echo "Python 12: ARM32 Version = ${upstreamversion}"
 
                         // Figure Out Template name
                         templatebase = "./linux_new/${PTYPE}/${DistArrayElement}/src/main/packaging/${PRODUCT}/${Release}/${DistArrayElement}.${PTYPE}${Release}.template.j2"
@@ -408,7 +461,7 @@ pipeline {
                           error("Template File Not Found At : ${templatebase}")
                         }
 
-                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${packagever}\""
+                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${packagever}\" \"${upstreamversion}\""
                         echo "Spec Command : ${speccmd}"
                         def genresult = sh(script: speccmd, returnStatus: true)
                         echo "Result : ${genresult}"
@@ -416,7 +469,7 @@ pipeline {
 
                       if (DistArrayElement == 'debian') {
 
-                        echo "Debug 06 Python Parameters For Debian"
+                        echo "Processing Debian Files"
                         // If Base Format Reqd = 23.0.0.0.0+37 ( Upstream jdk-23+37 )
                         // If Updt Format Reqd = 23.0.1.0.0+11 ( Upstream jdk-23.0.1+11 )
                         // If Rebuild Format Reqd = 23.0.1.1.0+5 ( Upstream jdk-23.0.1.1+5 )
@@ -447,37 +500,16 @@ pipeline {
                             } else {
                                 packagever = "${Release}.${Version}.0+${Build}"
                             }
+                            echo "Debian PackageVer = ${packagever}"
                         }
 
-                        // Fix Architectures To Be Debian Control File Compatible
-                        // s390x and riscv64 are OK
-                        // Reqd: amd64 armhf arm64 ppc64el
-                        // Actl: x64 arm aarch64 ppc64le
-
-                        packagearch = (PARCH == 'x64') ? 'amd64' :
-                                      (PARCH == 'arm') ? 'armhf' :
-                                      (PARCH == 'aarch64') ? 'arm64' :
-                                      (PARCH == 'ppc64le') ? 'ppc64el' :
-                                      (PARCH == 's390x') ? 's390x' :
-                                      (PARCH == 'riscv64') ? 'riscv64' :
-                                      'unknown'
-                        
-                        // Override Build Dists For Debian
-                        PKGBUILDLABEL = (PARCH == 'x64') ? 'build&&linux&&x64&&dockerBuild&&dynamicAzure' :
-                                        (PARCH == 'aarch64') ? 'armv8&&build&&dockerBuild&&dockerhost' :
-                                        (PARCH == 'ppc64le') ? 'linux&&dockerBuild&&dockerHost&&ppc64le' :
-                                        (PARCH == 's390x') ? 'linux&&dockerBuild&&dockerHost&&s390x' :
-                                        (PARCH == 'arm') ? 'armv8&&build&&dockerBuild&&dockerhost' :
-                                        (PARCH == 'riscv64') ? 'riscv64&&dockerInstaller' :
-                                        'build&&linux&&x64&&dockerBuild&&dynamicAzure'
-
-                        // echo "Debug 07"
-                        // echo "PVERS : ${PVERS}"
-                        // echo "Release = ${Release}"
-                        // echo "Version = ${Version}"
-                        // echo "Build = ${Build}"
-                        // echo "PackageVer = ${packagever}"
-                        // echo "PackageArch = ${packagearch}"
+                        echo "Debug 07"
+                        echo "PVERS : ${PVERS}"
+                        echo "Release = ${Release}"
+                        echo "Version = ${Version}"
+                        echo "Build = ${Build}"
+                        echo "PackageVer = ${packagever}"
+                        echo "PackageArch = ${packagearch}"
 
                         debianFiles.each { debianFilesArrayElement -> 
 
@@ -492,20 +524,21 @@ pipeline {
                           error("Template File Not Found At : ${templatebase}")
                         }
 
-                        echo "Debug 08"
-                        echo "Python 1 : Template Path = : ${templatebase}"
-                        echo "Python 2 : Package Version = : ${packagever}"
-                        echo "Python 3 : Package Arch = : ${packagearch}"
-                        echo "Python 4 : Package URL = : ${PKURL}"
-                        echo "Python 5 : Package Checksum = : ${PCSUM}"
-                        echo "Python 6 : Package Name = : ${PFILE}"
-                        echo "Python 7 : Output File Name = : ${outputfile}"
-                        echo "Python 8 : Current Date = : ${currentDate}"
-                        echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
-                        echo "Python 10: Upstream Version = : ${upstreamversion}"
-                        echo "Python 11: Changelog Version = : ${packagever}"
+                        // echo "Debug 08"
+                        // echo "Python 1 : Template Path = : ${templatebase}"
+                        // echo "Python 2 : Package Version = : ${packagever}"
+                        // echo "Python 3 : Package Arch = : ${packagearchDeb}"
+                        // echo "Python 4 : Package URL = : ${PKURL}"
+                        // echo "Python 5 : Package Checksum = : ${PCSUM}"
+                        // echo "Python 6 : Package Name = : ${PFILE}"
+                        // echo "Python 7 : Output File Name = : ${outputfile}"
+                        // echo "Python 8 : Current Date = : ${currentDate}"
+                        // echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
+                        // echo "Python 10: Upstream Version = : ${upstreamversion}"
+                        // echo "Python 11: Changelog Version = : ${packagever}"
+                        // echo "Python 12: ARM32 Version = ${upstreamversion}"
 
-                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${packagever}\""
+                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearchDeb}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${packagever}\" \"${upstreamversion}\""
                         echo "Spec Command : ${speccmd}"
                         def genresult = sh(script: speccmd, returnStatus: true)
                         echo "Result : ${genresult}"
@@ -516,9 +549,16 @@ pipeline {
                         
                         if (DistArrayElement == "rhel" || DistArrayElement == "suse") {
                         echo "Debug 09 - Rhel & Suse"
+                        echo "PVERS : ${PVERS}"
+                        echo "Release = ${Release}"
+                        echo "Version = ${Version}"
+                        echo "Build = ${Build}"
+                        echo "PackageVer = ${packagever}"
+                        echo "PackageArch = ${packagearch}"
 
                         if (Release == "8" ) {
                             echo "RHEL/SUSE JDK8"
+                            upstreamversion = params.TAG.replaceFirst("^jdk", "")
                             // Extract components from original format
                             def major = PVERS[0]           // Extract major version '8'
                             def versparser = (PVERS =~ /(\d+)u(\d+)b(\d+)/)
@@ -530,23 +570,28 @@ pipeline {
                             changelogversion = "${major}.0.${minor}-b${formattedBuild}"
                         } else {
                             echo "RHEL/SUSE Not JDK8"
-                            def formattedBuild = build.toString()padLeft(2, '0')
+                            echo "Deubg 09A - ${PVERS}"
+                            upstreamversion = params.TAG.replaceFirst("^jdk-", "")
+
                             if (Version == "null") {
-                                packagever = "${Release}.0.0.0.0.${build}"
-                                changelogversion = "${Release}.0.${minor}+${formattedBuild}"
+                                packagever = "${Release}.0.0.0.0.${Build}"
+                                changelogversion = "${Release}.0.${Version}+${Build}"
                             } else {
-                                packagever = "${Release}.${version}.0.${build}"
-                                changelogversion = "${Release}.0.${minor}+${formattedBuild}"
+                                packagever = "${Release}.${Version}.0.${Build}"
+                                changelogversion = "${Release}.0.${Version}+${Build}"
                             }
                         }
 
-                        // Figure Out Upstream Version
-
-                        upstreamversion = params.Tag.replaceFirst("^jdk", "")
-
-                        // Figure Out Changelog Version
-                        // JDK8   = 8.0.432-b06
-                        // JDK11+ = 11.0.12+7
+                        if (PARCH == 'arm') {
+                        // If JDK8 ARM32, Then Need To Deduce Correct Upstream
+                        echo "DEBUG00A - Get ARM32 Upstream Version #"
+                        echo "PARCH = ${PARCH}"
+                        upstreamversionARM32 = upstreamversionARM32.replaceFirst("^jdk", "")
+                        upstreamversionARM32 = upstreamversionARM32.replaceAll(/-(jre|jdk)$/, "")
+                        echo "Upstream ARM32 : ${upstreamversionARM32}"
+                        echo "upstreamVersion : ${upstreamversion}"
+                        // DONE
+                        }
 
                         // Figure Out Template name
                         templatebase = "./linux_new/${PTYPE}/${DistArrayElement}/src/main/packaging/${PRODUCT}/${Release}/${PRODUCT}-${Release}-${PTYPE}.template.j2"
@@ -558,24 +603,24 @@ pipeline {
                           error("Template File Not Found At : ${templatebase}")
                         }
 
-                        echo "Debug - 09a - PackageVer = ${packagever}"
-                        echo "Python 1 : Template Path = : ${templatebase}"
-                        echo "Python 2 : Package Version = : ${packagever}"
-                        echo "Python 3 : Package Arch = : ${packagearch}"
-                        echo "Python 4 : Package URL = : ${PKURL}"
-                        echo "Python 5 : Package Checksum = : ${PCSUM}"
-                        echo "Python 6 : Package Name = : ${PFILE}"
-                        echo "Python 7 : Output File Name = : ${outputfile}"
-                        echo "Python 8 : Current Date = : ${currentDateRHEL}"
-                        echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
-                        echo "Python 10: Upstream Version = : ${upstreamversion}"
-                        echo "Python 11: Changelog Version = : ${changelogversion}"
+                        // echo "Debug - 09a - PackageVer = ${packagever}"
+                        // echo "Python 1 : Template Path = : ${templatebase}"
+                        // echo "Python 2 : Package Version = : ${packagever}"
+                        // echo "Python 3 : Package Arch = : ${packagearchRhel}"
+                        // echo "Python 4 : Package URL = : ${PKURL}"
+                        // echo "Python 5 : Package Checksum = : ${PCSUM}"
+                        // echo "Python 6 : Package Name = : ${PFILE}"
+                        // echo "Python 7 : Output File Name = : ${outputfile}"
+                        // echo "Python 8 : Current Date = : ${currentDateRHEL}"
+                        // echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
+                        // echo "Python 10: Upstream Version = : ${upstreamversion}"
+                        // echo "Python 11: Changelog Version = : ${changelogversion}"
+                        // echo "Python 12: Upstream ARM32 Version = : ${upstreamversionARM32}"
 
-                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDateRHEL}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${changelogversion}\""
+                        def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearchRhel}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDateRHEL}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${changelogversion}\" \"${upstreamversionARM32}\""
                         echo "Spec Command : ${speccmd}"
-                        // def genresult = sh(script: speccmd, returnStatus: true)
-                        // echo "Result : ${genresult}"
-
+                        def genresult = sh(script: speccmd, returnStatus: true)
+                        echo "Result : ${genresult}"
 
                         // End Of RHEL SUSE CODE
                       }
@@ -600,231 +645,164 @@ pipeline {
                   }
               }
           }
-          stage('Build & Archive Package') {
-            agent { label PKGBUILDLABEL }
-            when {
-                expression { return params.Release }
-            }
-              steps {
-                  script {
-                        DISTS_TO_BUILD.each { DistArrayElement ->
-
-                          echo "Build Packages For Arch: ${arch}"
-                          echo "Build Packages For PARCH: ${packagearch}"
-                          echo "Building For Dist: ${DistArrayElement}"
-                          echo "Build Product: ${PRODUCT}"
-                          echo "Build Version : ${Release}"
-
-                          // Docker --mount option requires BuildKit
-                          env.DOCKER_BUILDKIT = 1
-                          env.COMPOSE_DOCKER_CLI_BUILD = 1
-                          env._JAVA_OPTIONS = (packagearch == 'armv7l' && pkDist == 'Debian') ? '' : '-Xmx4g'
-                          
-                          // Prepare Workspace
-                          cleanWs()
-                          unstash 'installercode'
-                          
-                          if (DistArrayElement == 'alpine') {
-                            try {
-                                
-                                def PackagesToBuild = ['jdk', 'jre' ]
-                                PackagesToBuild.each { PackageArrayElement ->
-                                
-                                  echo "Building Alpine Package For ${PackageArrayElement}"
-                                  // Construct Gradle Build Task Variable
-                                  def gBuildTask = (packagearch in ['x86_64', 'amd64']) ? "package${PackageArrayElement}${DistArrayElement} check${PackageArrayElement}${DistArrayElement}" : "package${PackageArrayElement}${DistArrayElement}"
-                                  
-                                  echo "Gradle Build Task : ${gBuildTask}"
-                                  
-                                  // Construct Gradle Build Command Line
-                                  def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearch}"
-                                  // Add signing if enabled to Gradle Build Command Line
-                                  if (params.enableGpgSigning) {
-                                    def privateKey = 'adoptium-artifactory-rsa-key'
-                                    withCredentials([file(credentialsId: privateKey, variable: 'GPG_KEY')]) {
-                                        buildCli += " -PGPG_KEY_PATH=${GPG_KEY}"
-                                        }
-                                    }
-                                    
-                                  // Add gradle debugging if enabled
-                                  buildCli = params.enableDebug.toBoolean() ? buildCli + ' --stacktrace' : buildCli
-                                  echo "Build CLI : ${buildCli}"
-                                  sh("$buildCli")
-                              }
-                            } catch (Exception ex) {
-                                echo 'Exception in buildAndTest: ' + ex
-                                currentBuild.result = 'FAILURE'  // set the whole pipeline 'red' if build or test fail. Do not use "error" that will not call "finally"
-                            } finally {
-                                    // should not allow empty archive, otherwise nothing created in the previous step: package and test result( not needed )
-                                    archiveArtifacts artifacts: '**/build/ospackage/*,**/build/reports/**,**/packageTest/dependencies/deb/*', onlyIfSuccessful:false, allowEmptyArchive: false
-                            }
-                        }
-
-                        if (DistArrayElement == 'debian') {
-                          echo "Debug 11 - Debian Gradle Prep"
-                          try {
-                            def PackagesToBuild = ['jdk', 'jre' ]
-                                PackagesToBuild.each { PackageArrayElement ->
-                                  echo "PackageArch = ${packagearch}"
-                                  echo "Building Debian Package For ${PackageArrayElement}"
-                                  // Construct Gradle Build Task Variable
-                                  def gBuildTask = (packagearch in ['x86_64', 'amd64']) ? "package${PackageArrayElement}${DistArrayElement} check${PackageArrayElement}${DistArrayElement}" : "package${PackageArrayElement}${DistArrayElement}"
-                                  echo "Gradle Build Task : ${gBuildTask}"
-                                   // Construct Gradle Build Command Line
-                                  def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearch}"
-                                  // Add signing if enabled to Gradle Build Command Line
-                                  if (params.enableGpgSigning) {
-                                    def privateKey = 'adoptium-artifactory-rsa-key'
-                                    withCredentials([file(credentialsId: privateKey, variable: 'GPG_KEY')]) {
-                                        buildCli += " -PGPG_KEY_PATH=${GPG_KEY}"
-                                        }
-                                    }
-                                    
-                                  // Add gradle debugging if enabled
-                                  buildCli = params.enableDebug.toBoolean() ? buildCli + ' --stacktrace' : buildCli
-                                  echo "Build CLI : ${buildCli}"
-                                  sh("$buildCli")
-                                } 
-                              } catch (Exception ex) {
-                                echo 'Exception in buildAndTest: ' + ex
-                                currentBuild.result = 'FAILURE'  // set the whole pipeline 'red' if build or test fail. Do not use "error" that will not call "finally"
-                              } finally {
-                                  // should not allow empty archive, otherwise nothing created in the previous step: package and test result( not needed )
-                                  archiveArtifacts artifacts: '**/build/ospackage/*,**/build/reports/**,**/packageTest/dependencies/deb/*', onlyIfSuccessful:false, allowEmptyArchive: false
-                              }
-                        }
-
-                        
-                     }
-                    }
+// Generate Spec File Stage - End
+// Build And Archive Packages Stage - Start
+stage('Build & Archive Package') {
+    // when {
+    //     expression { return params.RELEASE }
+    // }
+    steps {
+        script {
+            DISTS_TO_BUILD.each { DistArrayElement ->
+                def nodeLabel = ''
+                if (DistArrayElement == 'alpine') {
+                    nodeLabel = PKGBUILDLABELAPK
+                } else if (DistArrayElement == 'debian') {
+                    nodeLabel = PKGBUILDLABELDEB
+                } else if (DistArrayElement in ['rhel', 'suse']) {
+                    nodeLabel = PKGBUILDLABELRHEL
+                } else {
+                    error "Unknown DistArrayElement: ${DistArrayElement}"
                 }
 
-// Sample Gradle Build Tasks                            
-// packageJdk - Creates Linux packages of a JDK.
-// packageJdkAlpine - Creates deb package for Alpine flavours.
-// packageJdkDebian - Creates deb package for Debian flavours.
-// packageJdkRedHat - Creates RPM package for Red Hat flavours.
-// packageJdkSuse - Creates RPM package for SUSE flavours.
-// packageJre - Creates Linux packages of a JRE.
-// packageJreAlpine - Creates deb package for Alpine flavours.
-// packageJreDebian - Creates deb JRE package for Debian flavours.
-// packageJreRedHat - Creates RPM package for Red Hat flavours.
-// packageJreSuse - Creates RPM package for SUSE flavours.
+                node(label: nodeLabel) { // Assign node dynamically based on distribution type
+                    echo "Build Packages For Arch: ${arch}"
+                    echo "Build Packages For PARCH: ${packagearch}"
+                    echo "Building For Dist: ${DistArrayElement}"
+                    echo "Build Product: ${PRODUCT}"
+                    echo "Build Version : ${Release}"
 
-// Verification tasks
-// ------------------
-// check - Runs all checks.
-// checkCaCertificatesDebian - Tests the generated ca-certificate Debian packages.
-// checkCaCertificatesPackage - Tests the generated Linux Adoptium CA Certificates package.
-// checkJdkAlpine - Tests the generated Alpine packages.
-// checkJdkDebian - Tests the generated Debian packages.
-// checkJdkPackage - Tests the generated JDK packages.
-// checkJdkRedHat - Tests the generated RPM packages for RedHat.
-// checkJdkSuse - Tests the generated RPM packages for SUSE flavours.
-// checkJreAlpine - Tests the generated Alpine packages.
-// checkJreDebian - Tests the generated Debian packages.
-// checkJrePackage - Tests the generated JRE packages.
-// checkJreRedHat - Tests the generated RPM packages for RedHat.
-// checkJreSuse - Tests the generated RPM packages for SUSE flavours.
-//                 if (DISTRO != "Debian") { // for RPM based: RedHat / Suse / Alpine
-// def privateKey = 'adoptium-artifactory-gpg-key'
+                    // Docker --mount option requires BuildKit
+                    env.DOCKER_BUILDKIT = 1
+                    env.COMPOSE_DOCKER_CLI_BUILD = 1
 
-                          // if (DistArrayElement == 'debian') { }
-                          // if (DistArrayElement == "rhel" || DistArrayElement == "suse") { }
-//                                       def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${env.PRODUCT} -PPRODUCT_VERSION=${VERSION} -PARCH=${debArchList[buildArch]}"
-//             buildCli = params.enableDebug.toBoolean() ? buildCli + ' --stacktrace' : buildCli
-//             sh("$buildCli")
-//         }
-//     } catch (Exception ex) {
-//         echo 'Exception in buildAndTest: ' + ex
-//         currentBuild.result = 'FAILURE'  // set the whole pipeline 'red' if build or test fail. Do not use "error" that will not call "finally"
-//     } finally {
-//         // should not allow empty archive, otherwise nothing created in the previous step: package and test result( not needed )
-//         archiveArtifacts artifacts: '**/build/ospackage/*,**/build/reports/**,**/packageTest/dependencies/deb/*', onlyIfSuccessful:false, allowEmptyArchive: false
-//     }
-// }
+                    // Prepare Workspace
+                    cleanWs()
+                    unstash 'installercode'
 
-// private void buildCli(String DISTRO, String buildArch, String GPG_KEY = null, String VERSION) {
-//     def buildCli = "./gradlew package${TYPE}${DISTRO} check${TYPE}${DISTRO} --parallel -PPRODUCT=${env.PRODUCT} -PPRODUCT_VERSION=${VERSION} -PARCH=${buildArch}"
-//     if (GPG_KEY) {
-//         buildCli += " -PGPG_KEY=${GPG_KEY}"
-//     }
-//     if (params.enableDebug.toBoolean()) {
-//         buildCli += " --stacktrace"
-//     }
-//     sh(buildCli)
-// }
-                    // Tar And Publish The Generated Build Files
-                    // May Need Rework
-                    //   sh "tar -czf ./package_build_files.tar.gz ./linux/jdk/* ./linux/jre/*"
-                    //   sh "pwd"
-                    //   sh "ls -ltr"
-                    //   // Publish the tarball
-                    //   archiveArtifacts artifacts: "package_build_files.tar.gz", allowEmptyArchive: false
+                    try {
+                        def PackagesToBuild = ['jdk', 'jre']
+                        def buildCli
+                        PackagesToBuild.each { PackageArrayElement ->
+                            echo "Building Package: ${PackageArrayElement} for ${DistArrayElement}"
+                            def gBuildTask = (packagearch in ['x86_64', 'amd64']) ?
+                                "package${PackageArrayElement}${DistArrayElement} check${PackageArrayElement}${DistArrayElement}" :
+                                "package${PackageArrayElement}${DistArrayElement}"
+                            
+                            // Override Package Arch To Be Dist Specific
 
+                            if (DistArrayElement == "rhel" || DistArrayElement == "suse") {
+                              echo "Using build CLI for RHEL/SUSE: ${buildCli}"
+                              buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchRhel}"
+                            } else if (DistArrayElement == "debian") {
+                               echo "Using build CLI for Debian: ${buildCli}"
+                               buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchDeb}"
+                            } else {
+                              echo "Using default build CLI: ${buildCli}"
+                              buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearch}"
+                            }
+                                             
+                            if (params.ENABLEGPGSIGNING) {
+                                def privateKey = 'adoptium-artifactory-rsa-key'
+                                withCredentials([file(credentialsId: privateKey, variable: 'GPG_KEY')]) {
+                                    buildCli += " -PGPG_KEY_PATH=${GPG_KEY}"
+                                }
+                            }
 
-                    //   def jenkinsStepAlpine() {
-    // def temurinVersion = "${TYPE.toLowerCase()} ${VERSION} - ${ARCH}"
-    // def VERSION = "${VERSION}"
-    // echo "Installer Job for Temurin ${temurinVersion} - Alpine"
-    // //make sure this is an array not a string
-    // def apkArchAllList = []
-    // // for one single ARCH add into array
-    // apkArchAllList.add("${ARCH}")
-    // // when ARCH = all, rewrite list
-    // if ("${ARCH}" == 'all') {
-    //     apkArchAllList = ['x86_64', 'aarch64']
-    // }
-    // // remove aarch64 for JDK20 and below
-    // def versionInt = VERSION as int // Parse Version As Integer
-    // if (versionInt < 21) {
-    //       apkArchAllList.remove('aarch64')
-    // }
-
-    // apkArchAllList.each { ApkARCH ->
-    //     // special handle: no label x86_64 only x64 for alpine agent
-    //     def apkLabel = "${ApkARCH}&&docker"
-
-    //     if ("${ApkARCH}" == 'x86_64') {
-    //         apkLabel = 'x64&&dockerBuild'
-    //     }
-    //     // reallocate jenkins agent per element in list
-    //     if (ApkARCH == 'x86_64' || ApkARCH == 'aarch64') {
-    //     node("linux&&${apkLabel}") {
-    //         setup('Alpine', "${ApkARCH}")
-    //         tool name: 'jfrog-cli', type: 'jfrog'
-    //         unstash 'installercode'
-    //         buildAndTest('Alpine', "${ApkARCH}", "${VERSION}")
-    //         if (params.uploadPackage.toBoolean()) {
-    //             echo "Upload artifacts for ${VERSION} - ${ApkARCH} - Alpine"
-    //             uploadArtifacts('Alpine', "${ApkARCH}", "${VERSION}")
-
-
-          }
+                            buildCli = params.ENABLEDEBUG.toBoolean() ? buildCli + ' --stacktrace' : buildCli
+                            echo "Build CLI : ${buildCli}"
+                            sh("$buildCli")
+                        }
+                    } catch (Exception ex) {
+                        echo "Exception in build for ${DistArrayElement}: ${ex}"
+                        currentBuild.result = 'FAILURE'
+                    } finally {
+                        archiveArtifacts artifacts: '**/build/ospackage/*,**/build/reports/**,**/packageTest/dependencies/deb/*',
+                                         onlyIfSuccessful: false, allowEmptyArchive: false
+                    }
+                }
+            }
+        }
+    }
+}
+// Build And Archive Packages Stage - End
+// Publish Packages Stage - Start
           stage('Publish Packages') {
             agent { label NODE_LABEL }
             tools {
                 jfrog 'jfrog-cli'
                 }
             when {
-                expression { return params.Release }
+                expression { return params.DRY_RUN == false }
             }
               steps {
                   script {
-                      echo "Publish Packages"
+                      echo "This Isnt A Dry Run So Publish Packages"
+                      echo "Publishing Packages For : ${distro}"
+                      echo "Arch : ${arch}"
+                      echo "Publishing For Version : ${Release}"
+                      echo ""
+                      echo "Retrieving Files"
+                      echo ""
+                      copyArtifacts projectName: "${env.JOB_NAME}",
+                                selector: specific("${env.BUILD_NUMBER}"),
+                                filter: '**/build/ospackage/*,**/build/reports/**,**/packageTest/dependencies/deb/*'
+
+                    // Verify files are retrieved
+                    // sh 'find .'
+                    echo "Done Retrieving Files"
+
+                    // Distro Specific Uploads
+                    if (distro == 'alpine-linux') {
+                        echo "ALPINE UPLOAD"
+                        def PackFiles = findFiles(glob: '**/build/ospackage/temurin-*j*.apk') // List All Packages To Upload
+                        def SrcFiles = findFiles(glob: '**/build/ospackage/temurin-*src*.apk') // List All Sources To Upload
+                        def AllFiles = PackFiles + SrcFiles
+                        for (PackFile in AllFiles) {
+                                 def FileName = PackFile.name
+                                 def Target = "https://adoptium.jfrog.io/artifactory/apk/alpine/main/${arch}/${FileName}"
+                                 echo "FileName = ${FileName}"
+                                 echo "Target = ${Target}"
+                                 // CheckAndUpload(Target, Distro, buildArch, '', '', '', '', '' , FileName)
+                        }
+                    } else if (distro == 'linux') {
+                        echo "Linux Upload"
+                        echo ""
+                        echo "Preparing For Debian Upload"
+                        def PackFilesDeb = findFiles(glob: "**/build/ospackage/temurin-*.deb") // List All Packages To Upload
+                        for (PackFile in PackFilesDeb) {
+                            def FileName = PackFile.name
+                            def Target = "https://adoptium.jfrog.io/artifactory/deb/pool/main/t/temurin-${Release}/${FileName}"
+                            echo "Deb FileName = ${FileName}"
+                            echo "Target = ${Target}"
+                            //CheckAndUpload(Target, Distro, BUILDARCH, VERSION, DISTROLIST, '', '', '', '' )"
+                        }
+                        echo "Preparing For RHEL Upload"
+                        def PackFilesRHEL = findFiles(glob: "**/rhel/build/ospackage/t*.rpm") // List All Packages To Upload For Temurin
+                        for (PackFile in PackFilesRHEL) {
+                            def FileName = PackFile.name
+                            // def Target = "https://adoptium.jfrog.io/artifactory/${PACKAGEDIR}/${KEY}/Packages/${FileName}"
+                            echo "RHEL FileName = ${FileName}"
+                            // echo "Target = ${Target}"
+                            //CheckAndUpload(Target, Distro, BUILDARCH, VERSION, DISTROLIST, '', '', '', '' )"
+                        }
+                        echo "Preparing For SUSE Upload"
+                        def PackFilesSUSE = findFiles(glob: "**/suse/build/ospackage/t*.rpm") // List All Packages To Upload For Temurin
+                        for (PackFile in PackFilesSUSE) {
+                            def FileName = PackFile.name
+                            // def Target = "https://adoptium.jfrog.io/artifactory/${PACKAGEDIR}/${KEY}/Packages/${FileName}"
+                            echo "SUSE FileName = ${FileName}"
+                            // echo "Target = ${Target}"
+                            //CheckAndUpload(Target, Distro, BUILDARCH, VERSION, DISTROLIST, '', '', '', '' )"
+                        }
+                    } else {
+                        error "Unknown Distribution"
+                    }
                   }
               }
           }
-          stage('Store Spec File') {
-            agent { label NODE_LABEL }
-            when {
-                expression { return params.Release }
-            }
-              steps {
-                  script {
-                      echo "Store Spec File"
-                  }
-              }
-          }
-      }
+// Publish Packages Stage - End
   }
+// Stage Definition - End
+}
+// Pipeline Definition - End

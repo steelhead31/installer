@@ -128,7 +128,18 @@ if ("$arch" == "riscv64") {
 			}
 		}
 
-if ("$arch" != "armhf" && "$arch" != "riscv64"){
+if ("$arch" == "s390x") {
+		project.exec {
+			workingDir "src/main/packaging"
+			commandLine "docker", "build", "--no-cache",
+				"--build-arg", "IMAGE=s390x/debian:bullseye",
+				"-t", "adoptium-packages-linux-jdk-debian",
+				"--build-arg=CONTAINER_REGISTRY=${containerRegistry}",
+				"-f", "Dockerfile",
+				getProjectDir().absolutePath + "/src/main/packaging"
+		}
+	}
+if ("$arch" != "armhf" && "$arch" != "riscv64" && "$arch" != "s390x"){
 		project.exec {
 			workingDir "src/main/packaging"
 			commandLine "docker", "build", "--no-cache",
@@ -138,8 +149,6 @@ if ("$arch" != "armhf" && "$arch" != "riscv64"){
 				getProjectDir().absolutePath + "/src/main/packaging"
      }
 	}
-
-
 
 		project.exec {
 			workingDir getRootDir()
