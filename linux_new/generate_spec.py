@@ -2,7 +2,7 @@ import sys
 import os
 from jinja2 import Environment, FileSystemLoader
 
-def print_parameters(template_path, package_version, hardware_architecture, package_url, package_checksum, package_name, output_file_name, current_date, package_release_version, upstream_versionm Changelog_version):
+def print_parameters(template_path, package_version, hardware_architecture, package_url, package_checksum, package_name, output_file_name, current_date, package_release_version, upstream_version, Changelog_version):
     """
     Print the received parameters in a formatted manner.
     """
