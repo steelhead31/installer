@@ -46,7 +46,7 @@ test {
 	}
 }
 
-task packageJreRedHat {
+task packageJrerhel {
 	dependsOn "assemble"
 
 	group = "packaging"
@@ -98,7 +98,7 @@ task packageJreRedHat {
 			project.exec {
 				workingDir "src/main/packaging"
 				commandLine "docker", "build", "--no-cache",
-					"-t", "adoptium-packages-linux-jdk-redhat",
+					"-t", "adoptium-packages-linux-jdk-rhel",
 					"--secret", "id=gpg,src=${gpgKey}",
 					"--build-arg=CONTAINER_REGISTRY=${containerRegistry}",
 					"-f", "Dockerfile",
@@ -108,7 +108,7 @@ task packageJreRedHat {
 			project.exec {
 				workingDir "src/main/packaging"
 				commandLine "docker", "build", "--no-cache",
-					"-t", "adoptium-packages-linux-jdk-redhat",
+					"-t", "adoptium-packages-linux-jdk-rhel",
 					"--build-arg=CONTAINER_REGISTRY=${containerRegistry}",
 					"-f", "Dockerfile",
 					getProjectDir().absolutePath + "/src/main/packaging"
@@ -124,15 +124,15 @@ task packageJreRedHat {
 				"-e", "buildLocalFlag=${buildLocalFlag}",
 				"--mount", "type=bind,source=${buildDir},target=/home/builder/build",
 				"--mount", "type=bind,source=${outputDir.absolutePath},target=/home/builder/out",
-				"adoptium-packages-linux-jdk-redhat:latest"
+				"adoptium-packages-linux-jdk-rhel:latest"
 		}
 	}
 }
 
-task checkJreRedHat(type: Test) {
-	dependsOn packageJreRedHat
+task checkJrerhel(type: Test) {
+	dependsOn packageJrerhel
 
-	description = 'Tests the generated RPM packages for RedHat.'
+	description = 'Tests the generated RPM packages for RHEL.'
 	group = 'verification'
 
 	testClassesDirs = sourceSets.packageTest.output.classesDirs
@@ -169,5 +169,5 @@ task checkJreRedHat(type: Test) {
 	}
 }
 
-parent.packageJre.dependsOn(packageJreRedHat)
-parent.checkJrePackage.dependsOn(checkJreRedHat)
+parent.packageJre.dependsOn(packageJrerhel)
+parent.checkJrePackage.dependsOn(checkJrerhel)

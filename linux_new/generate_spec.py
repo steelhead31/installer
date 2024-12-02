@@ -2,24 +2,25 @@ import sys
 import os
 from jinja2 import Environment, FileSystemLoader
 
-def print_parameters(template_path, package_version, hardware_architecture, package_url, package_checksum, package_name, output_file_name, current_date, package_release_version, upstream_version, Changelog_version):
+def print_parameters(template_path, package_version, hardware_architecture, package_url, package_checksum, package_name, output_file_name, current_date, package_release_version, upstream_version, changelog_version, upstreamarm32_version):
     """
     Print the received parameters in a formatted manner.
     """
     print("Parameters received:")
-    print(f"  Template Path        : {template_path}")
-    print(f"  Package Version      : {package_version}")
-    print(f"  Hardware Architecture: {hardware_architecture}")
-    print(f"  Package URL          : {package_url}")
-    print(f"  Package Checksum     : {package_checksum}")
-    print(f"  Package Name         : {package_name}")
-    print(f"  Output File Name     : {output_file_name}")
-    print(f"  Current Date         : {current_date}")
-    print(f"  Pack Rel Version     : {package_release_version}")
-    print(f"  Upstream Version     : {upstream_version}")
-    print(f"  Changelog Version    : {Changelog_version}")
+    print(f"  Template Path          : {template_path}")
+    print(f"  Package Version        : {package_version}")
+    print(f"  Hardware Architecture  : {hardware_architecture}")
+    print(f"  Package URL            : {package_url}")
+    print(f"  Package Checksum       : {package_checksum}")
+    print(f"  Package Name           : {package_name}")
+    print(f"  Output File Name       : {output_file_name}")
+    print(f"  Current Date           : {current_date}")
+    print(f"  Pack Rel Version       : {package_release_version}")
+    print(f"  Upstream Version       : {upstream_version}")
+    print(f"  Changelog Version      : {changelog_version}")
+    print(f"  Upstream ARM32 Version : {upstreamarm32_version}")
 
-def render_template(template_path, package_version, hardware_architecture, package_url, package_checksum, package_name, output_file_name, current_date, package_release_version, upstream_version, changelog_version):
+def render_template(template_path, package_version, hardware_architecture, package_url, package_checksum, package_name, output_file_name, current_date, package_release_version, upstream_version, changelog_version, upstreamarm32_version):
     """
     Render a Jinja2 template file using provided parameters and save the result to an output file specified by the user.
 
@@ -35,6 +36,7 @@ def render_template(template_path, package_version, hardware_architecture, packa
         package_release_version (str): The package release version.
         upstream_version (str): The upstream release version.
         changelog_version (str): The version to be used in the changelog version
+        upstreamarm32_version (str): The upstream version to be used for ARM32 on JDK8
     """
     # Get the directory of the template file and set the output file path in the same directory
     template_dir = os.path.dirname(template_path)
@@ -54,7 +56,8 @@ def render_template(template_path, package_version, hardware_architecture, packa
         current_date=current_date,
         package_release_version=package_release_version,
         upstream_version=upstream_version,
-        changelog_version=changelog_version
+        changelog_version=changelog_version,
+        upstreamarm32_version=upstreamarm32_version
     )
 
     # Write the rendered content to the output file
@@ -65,7 +68,7 @@ def render_template(template_path, package_version, hardware_architecture, packa
 
 def main():
     # Define the expected parameter count (9 parameters + script name)
-    expected_params = 11
+    expected_params = 12
 
     # Check if the correct number of arguments was provided ( add 1 for script name/system param)
     if len(sys.argv) != expected_params + 1:
@@ -84,6 +87,7 @@ def main():
         print("  Package Rel Version  - The current package release version")
         print("  Upstream Version     - The Upstream Source Version")
         print("  Changelog Version    - The version to be used in the package changelog")
+        print("  Upstream ARM2 Version- The ARM32 Upstream Version Number")
         sys.exit(1)
 
     # Assign parameters to descriptive variable names
@@ -98,12 +102,13 @@ def main():
     package_release_version = sys.argv[9]
     upstream_version = sys.argv[10]
     changelog_version = sys.argv[11]
+    upstreamarm32_version = sys.argv[12]
 
     # Print the parameters for debugging
-    print_parameters(template_path, package_version, hardware_architecture, package_url, package_checksum, package_name, output_file_name, current_date, package_release_version, upstream_version, changelog_version)
+    print_parameters(template_path, package_version, hardware_architecture, package_url, package_checksum, package_name, output_file_name, current_date, package_release_version, upstream_version, changelog_version, upstreamarm32_version)
 
     # Render the template with the provided parameters
-    render_template(template_path, package_version, hardware_architecture, package_url, package_checksum, package_name, output_file_name, current_date, package_release_version, upstream_version, changelog_version)
+    render_template(template_path, package_version, hardware_architecture, package_url, package_checksum, package_name, output_file_name, current_date, package_release_version, upstream_version, changelog_version, upstreamarm32_version)
 
 if __name__ == "__main__":
     main()

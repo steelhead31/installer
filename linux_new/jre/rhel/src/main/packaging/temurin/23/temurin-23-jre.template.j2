@@ -2,13 +2,13 @@
 # Only [A-Za-z0-9.] allowed in version:
 # https://docs.fedoraproject.org/en-US/packaging-guidelines/Versioning/#_upstream_uses_invalid_characters_in_the_version
 # also not very intuitive:
-#  $ rpmdev-vercmp 21.0.0.0.0___21.0.0.0.0+1
-#  20.0.0.0.0___1 == 21.0.0.0.0+35
+#  $ rpmdev-vercmp 23.0.0.0.0___23.0.0.0.0+1
+#  23.0.0.0.0___1 == 23.0.0.0.0+37
 %global spec_version {{ package_version }}
 %global spec_release {{ package_release_version }}
-%global priority 2100
+%global priority 2300
 
-%global source_url_base https://github.com/adoptium/temurin21-binaries/releases/download
+%global source_url_base https://github.com/adoptium/temurin23-binaries/releases/download
 %global upstream_version_url %(echo %{upstream_version} | sed 's/\+/%%2B/g')
 %global upstream_version_no_plus %(echo %{upstream_version} | sed 's/\+/_/g')
 %global java_provides openjre
@@ -20,10 +20,10 @@
 %global src_num 0
 %global sha_src_num 1
 
-Name:        temurin-21-jre
+Name:        temurin-23-jre
 Version:     %{spec_version}
 Release:     %{spec_release}
-Summary:     Eclipse Temurin 21 JRE
+Summary:     Eclipse Temurin 23 JRE
 
 Group:       java
 License:     GPLv2 with exceptions
@@ -32,16 +32,16 @@ URL:         https://projects.eclipse.org/projects/adoptium
 Packager:    Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>
 
 AutoReqProv: no
-Prefix: %{_libdir}/jvm/%{name}
+Prefix: /usr/lib/jvm/%{name}
 
-%if "%{vers_arch}" == "x64"
-ExclusiveArch: x86_64
-%else
 ExclusiveArch: {{ hardware_architecture }}
-%endif
 
 %if "%{vers_arch}" == "armv7hl"
 %define vers_arch arm
+%endif
+
+%if "%{vers_arch}" == "x86_64"
+%define vers_arch x64
 %endif
 
 BuildRequires:  tar
@@ -50,29 +50,35 @@ BuildRequires:  wget
 Requires: /bin/sh
 Requires: /usr/sbin/alternatives
 Requires: ca-certificates
-Requires: dejavu-fonts
-Requires: libX11-6%{?_isa}
-Requires: libXext6%{?_isa}
-Requires: libXi6%{?_isa}
-Requires: libXrender1%{?_isa}
-Requires: libXtst6%{?_isa}
-Requires: libasound2%{?_isa}
+Requires: dejavu-sans-fonts
+Requires: libX11%{?_isa}
+Requires: libXext%{?_isa}
+Requires: libXi%{?_isa}
+Requires: libXrender%{?_isa}
+Requires: libXtst%{?_isa}
+Requires: alsa-lib%{?_isa}
 Requires: glibc%{?_isa}
-Requires: libz1%{?_isa}
+Requires: zlib%{?_isa}
 Requires: fontconfig%{?_isa}
 
 Provides: jre
-Provides: jre-21
-Provides: jre-21-headless
-Provides: jre-21-%{java_provides}
-Provides: jre-21-%{java_provides}-headless
+Provides: jre-23
+Provides: jre-23-headless
+Provides: jre-23-%{java_provides}
+Provides: jre-23-%{java_provides}-headless
 Provides: jre-headless
 Provides: jre-%{java_provides}
 Provides: jre-%{java_provides}-headless
 
 # First architecture ({{ hardware_architecture }})
-Source0: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK21U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
-Source1: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK21U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
+Source0: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK23U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
+Source1: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK23U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
+
+# Set the compression format to xz to be compatible with more Red Hat flavours. Newer versions of Fedora use zstd which
+# is not available on CentOS 7, for example. https://github.com/rpm-software-management/rpm/blob/master/macros.in#L353
+# lists the available options.
+%define _source_payload w7.xzdio
+%define _binary_payload w7.xzdio
 
 # Avoid build failures on some distros due to missing build-id in binaries.
 %global debug_package %{nil}
@@ -100,11 +106,14 @@ tar --strip-components=1 -C "%{buildroot}%{prefix}" -xf %{expand:%{SOURCE%{src_n
 # Use cacerts included in OS
 rm -f "%{buildroot}%{prefix}/lib/security/cacerts"
 pushd "%{buildroot}%{prefix}/lib/security"
-ln -s /var/lib/ca-certificates/java-cacerts "%{buildroot}%{prefix}/lib/security/cacerts"
+ln -s /etc/pki/java/cacerts "%{buildroot}%{prefix}/lib/security/cacerts"
 popd
 
-%pretrans
-# noop
+# Ensure systemd-tmpfiles-clean does not remove pid files
+# https://bugzilla.redhat.com/show_bug.cgi?id=1704608
+%{__mkdir} -p %{buildroot}/usr/lib/tmpfiles.d
+echo 'x /tmp/hsperfdata_*' > "%{buildroot}/usr/lib/tmpfiles.d/%{name}.conf"
+echo 'x /tmp/.java_pid*' >> "%{buildroot}/usr/lib/tmpfiles.d/%{name}.conf"
 
 %post
 if [ $1 -ge 1 ] ; then
@@ -124,6 +133,7 @@ fi
 %files
 %defattr(-,root,root)
 %{prefix}
+/usr/lib/tmpfiles.d/%{name}.conf
 
 %changelog
 * {{ current_date }} Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> {{ package_version }}-{{ package_release_version }}

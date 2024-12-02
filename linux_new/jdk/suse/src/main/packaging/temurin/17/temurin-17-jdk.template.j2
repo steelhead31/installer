@@ -2,13 +2,13 @@
 # Only [A-Za-z0-9.] allowed in version:
 # https://docs.fedoraproject.org/en-US/packaging-guidelines/Versioning/#_upstream_uses_invalid_characters_in_the_version
 # also not very intuitive:
-#  $ rpmdev-vercmp 23.0.0.0.0___23.0.0.0.0+1
-#  23.0.0.0.0___1 == 23.0.0.0.0+37
+#  $ rpmdev-vercmp 17.0.1.0.1___17.0.1.0+12
 %global spec_version {{ package_version }}
 %global spec_release {{ package_release_version }}
-%global priority 2300
+#  17.0.3.0.0___7 == 17.0.3.0.0+7
+%global priority 1161
 
-%global source_url_base https://github.com/adoptium/temurin23-binaries/releases/download
+%global source_url_base https://github.com/adoptium/temurin17-binaries/releases/download
 %global upstream_version_url %(echo %{upstream_version} | sed 's/\+/%%2B/g')
 %global upstream_version_no_plus %(echo %{upstream_version} | sed 's/\+/_/g')
 %global java_provides openjdk
@@ -20,10 +20,10 @@
 %global src_num 0
 %global sha_src_num 1
 
-Name:        temurin-23-jdk
+Name:        temurin-17-jdk
 Version:     %{spec_version}
 Release:     %{spec_release}
-Summary:     Eclipse Temurin 23 JDK
+Summary:     Eclipse Temurin 17 JDK
 
 Group:       java
 License:     GPLv2 with exceptions
@@ -63,12 +63,12 @@ Requires: fontconfig%{?_isa}
 Requires: libfreetype6%{?_isa}
 
 Provides: java
-Provides: java-23
-Provides: java-23-devel
-Provides: java-23-headless
-Provides: java-23-%{java_provides}
-Provides: java-23-%{java_provides}-devel
-Provides: java-23-%{java_provides}-headless
+Provides: java-17
+Provides: java-17-devel
+Provides: java-17-headless
+Provides: java-17-%{java_provides}
+Provides: java-17-%{java_provides}-devel
+Provides: java-17-%{java_provides}-headless
 Provides: java-devel
 Provides: java-devel-%{java_provides}
 Provides: java-headless
@@ -76,13 +76,21 @@ Provides: java-%{java_provides}
 Provides: java-%{java_provides}-devel
 Provides: java-%{java_provides}-headless
 Provides: java-sdk
-Provides: java-sdk-23
-Provides: java-sdk-23-%{java_provides}
+Provides: java-sdk-17
+Provides: java-sdk-17-%{java_provides}
 Provides: java-sdk-%{java_provides}
+Provides: jre
+Provides: jre-17
+Provides: jre-17-headless
+Provides: jre-17-%{java_provides}
+Provides: jre-17-%{java_provides}-headless
+Provides: jre-headless
+Provides: jre-%{java_provides}
+Provides: jre-%{java_provides}-headless
 
 # First architecture ({{ hardware_architecture }})
-Source0: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK23U-jdk_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
-Source1: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK23U-jdk_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
+Source0: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK17U-jdk_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
+Source1: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK17U-jdk_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
 
 # Avoid build failures on some distros due to missing build-id in binaries.
 %global debug_package %{nil}
@@ -106,6 +114,9 @@ popd
 mkdir -p %{buildroot}%{prefix}
 cd %{buildroot}%{prefix}
 tar --strip-components=1 -C "%{buildroot}%{prefix}" -xf %{expand:%{SOURCE%{src_num}}}
+
+# Strip bundled Freetype and use OS package instead.
+rm -f "%{buildroot}%{prefix}/lib/libfreetype.so"
 
 # Use cacerts included in OS
 rm -f "%{buildroot}%{prefix}/lib/security/cacerts"
@@ -146,12 +157,11 @@ if [ $1 -ge 1 ] ; then
                         --slave %{_bindir}/jmod jmod %{prefix}/bin/jmod \
                         --slave %{_bindir}/jpackage jpackage %{prefix}/bin/jpackage \
                         --slave %{_bindir}/jps jps %{prefix}/bin/jps \
-                        --slave %{_bindir}/jrunscript jrunscript %{prefix}/bin/jrunscript \
+                         --slave %{_bindir}/jrunscript jrunscript %{prefix}/bin/jrunscript \
                         --slave %{_bindir}/jshell jshell %{prefix}/bin/jshell \
                         --slave %{_bindir}/jstack jstack %{prefix}/bin/jstack \
                         --slave %{_bindir}/jstat jstat %{prefix}/bin/jstat \
                         --slave %{_bindir}/jstatd jstatd %{prefix}/bin/jstatd \
-                        --slave %{_bindir}/jwebserver jwebserver %{prefix}/bin/jwebserver \
                         --slave %{_bindir}/serialver serialver %{prefix}/bin/serialver \
                         --slave  %{_mandir}/man1/jar.1 jar.1 %{prefix}/man/man1/jar.1 \
                         --slave  %{_mandir}/man1/jarsigner.1 jarsigner.1 %{prefix}/man/man1/jarsigner.1 \
@@ -176,7 +186,6 @@ if [ $1 -ge 1 ] ; then
                         --slave  %{_mandir}/man1/jstack.1 jstack.1 %{prefix}/man/man1/jstack.1 \
                         --slave  %{_mandir}/man1/jstat.1 jstat.1 %{prefix}/man/man1/jstat.1 \
                         --slave  %{_mandir}/man1/jstatd.1 jstatd.1 %{prefix}/man/man1/jstatd.1 \
-                        --slave  %{_mandir}/man1/jwebserver.1 jwebserver.1 %{prefix}/man/man1/jwebserver.1 \
                         --slave  %{_mandir}/man1/serialver.1 serialver.1 %{prefix}/man/man1/serialver.1
 fi
 

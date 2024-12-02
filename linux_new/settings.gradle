@@ -1,4 +1,4 @@
-rootProject.name = "adoptium-packages-linux"
+rootProject.name = "adoptium-packages-linux-new"
 
 include "ca-certificates",
 	"ca-certificates:debian",
@@ -6,11 +6,11 @@ include "ca-certificates",
 	"jdk",
 	"jdk:alpine",
 	"jdk:debian",
-	"jdk:redhat",
+	"jdk:rhel",
 	"jdk:suse",
 
 	"jre",
 	"jre:alpine",
 	"jre:debian",
-	"jre:redhat",
+	"jre:rhel",
 	"jre:suse"
