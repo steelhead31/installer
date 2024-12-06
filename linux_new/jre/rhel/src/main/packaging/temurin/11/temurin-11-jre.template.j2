@@ -2,13 +2,13 @@
 # Only [A-Za-z0-9.] allowed in version:
 # https://docs.fedoraproject.org/en-US/packaging-guidelines/Versioning/#_upstream_uses_invalid_characters_in_the_version
 # also not very intuitive:
-#  $ rpmdev-vercmp 17.0.1.0.1___17.0.1.0+12
-#  17.0.1.0.0___12 == 17.0.1.0.0+12
+#  $ rpmdev-vercmp 11.0.13.0.1___7 11.0.13.0.0+8
+#  11.0.13.0.0___8 == 11.0.13.0.0+8
 %global spec_version {{ package_version }}
 %global spec_release {{ package_release_version }}
-%global priority 1712
+%global priority 1112
 
-%global source_url_base https://github.com/adoptium/temurin17-binaries/releases/download
+%global source_url_base https://github.com/adoptium/temurin11-binaries/releases/download
 %global upstream_version_url %(echo %{upstream_version} | sed 's/\+/%%2B/g')
 %global upstream_version_no_plus %(echo %{upstream_version} | sed 's/\+/_/g')
 %global java_provides openjre
@@ -20,10 +20,10 @@
 %global src_num 0
 %global sha_src_num 1
 
-Name:        temurin-17-jre
+Name:        temurin-11-jre
 Version:     %{spec_version}
 Release:     %{spec_release}
-Summary:     Eclipse Temurin 17 JRE
+Summary:     Eclipse Temurin 11 JRE
 
 Group:       java
 License:     GPLv2 with exceptions
@@ -38,6 +38,10 @@ ExclusiveArch: {{ hardware_architecture }}
 
 %if "%{vers_arch}" == "armv7hl"
 %define vers_arch arm
+%endif
+
+%if "%{vers_arch}" == "x86_64"
+%define vers_arch x64
 %endif
 
 BuildRequires:  tar
@@ -58,17 +62,17 @@ Requires: zlib%{?_isa}
 Requires: fontconfig%{?_isa}
 
 Provides: jre
-Provides: jre-17
-Provides: jre-17-headless
-Provides: jre-17-%{java_provides}
-Provides: jre-17-%{java_provides}-headless
+Provides: jre-11
+Provides: jre-11-headless
+Provides: jre-11-%{java_provides}
+Provides: jre-11-%{java_provides}-headless
 Provides: jre-headless
 Provides: jre-%{java_provides}
 Provides: jre-%{java_provides}-headless
 
 # First architecture ({{ hardware_architecture }})
-Source0: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK17U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
-Source1: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK17U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
+Source0: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK11U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
+Source1: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK11U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
 
 # Set the compression format to xz to be compatible with more Red Hat flavours. Newer versions of Fedora use zstd which
 # is not available on CentOS 7, for example. https://github.com/rpm-software-management/rpm/blob/master/macros.in#L353
@@ -114,10 +118,23 @@ echo 'x /tmp/.java_pid*' >> "%{buildroot}/usr/lib/tmpfiles.d/%{name}.conf"
 %post
 if [ $1 -ge 1 ] ; then
     update-alternatives --install %{_bindir}/java java %{prefix}/bin/java %{priority} \
+                        --slave %{_bindir}/jaotc jaotc %{prefix}/bin/jaotc \
                         --slave %{_bindir}/jfr jfr %{prefix}/bin/jfr \
+                        --slave %{_bindir}/jjs jjs %{prefix}/bin/jjs \
                         --slave %{_bindir}/jrunscript jrunscript %{prefix}/bin/jrunscript \
                         --slave %{_bindir}/keytool keytool %{prefix}/bin/keytool \
-                        --slave %{_bindir}/rmiregistry rmiregistry %{prefix}/bin/rmiregistry
+                        --slave %{_bindir}/pack200 pack200 %{prefix}/bin/pack200 \
+                        --slave %{_bindir}/rmid rmid %{prefix}/bin/rmid \
+                        --slave %{_bindir}/rmiregistry rmiregistry %{prefix}/bin/rmiregistry \
+                        --slave %{_bindir}/unpack200 unpack200 %{prefix}/bin/unpack200 \
+                        \
+                        --slave  %{_mandir}/man1/java.1 java.1 %{prefix}/man/man1/java.1 \
+                        --slave  %{_mandir}/man1/jjs.1 jjs.1 %{prefix}/man/man1/jjs.1 \
+                        --slave  %{_mandir}/man1/keytool.1 keytool.1 %{prefix}/man/man1/keytool.1 \
+                        --slave  %{_mandir}/man1/pack200.1 pack200.1 %{prefix}/man/man1/pack200.1 \
+                        --slave  %{_mandir}/man1/rmid.1 rmid.1 %{prefix}/man/man1/rmid.1 \
+                        --slave  %{_mandir}/man1/rmiregistry.1 rmiregistry.1 %{prefix}/man/man1/rmiregistry.1 \
+                        --slave  %{_mandir}/man1/unpack200.1 unpack200.1 %{prefix}/man/man1/unpack200.1
 fi
 
 %preun

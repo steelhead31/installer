@@ -2,13 +2,13 @@
 # Only [A-Za-z0-9.] allowed in version:
 # https://docs.fedoraproject.org/en-US/packaging-guidelines/Versioning/#_upstream_uses_invalid_characters_in_the_version
 # also not very intuitive:
-#  $ rpmdev-vercmp 21.0.0.0.0___21.0.0.0.0+1
-#  20.0.0.0.0___1 == 21.0.0.0.0+35
+#  $ rpmdev-vercmp 17.0.1.0.1___17.0.1.0+12
+#  17.0.1.0.0___12 == 17.0.1.0.0+12
 %global spec_version {{ package_version }}
 %global spec_release {{ package_release_version }}
-%global priority 2100
+%global priority 1712
 
-%global source_url_base https://github.com/adoptium/temurin21-binaries/releases/download
+%global source_url_base https://github.com/adoptium/temurin17-binaries/releases/download
 %global upstream_version_url %(echo %{upstream_version} | sed 's/\+/%%2B/g')
 %global upstream_version_no_plus %(echo %{upstream_version} | sed 's/\+/_/g')
 %global java_provides openjre
@@ -20,10 +20,10 @@
 %global src_num 0
 %global sha_src_num 1
 
-Name:        temurin-21-jre
+Name:        temurin-17-jre
 Version:     %{spec_version}
 Release:     %{spec_release}
-Summary:     Eclipse Temurin 21 JRE
+Summary:     Eclipse Temurin 17 JRE
 
 Group:       java
 License:     GPLv2 with exceptions
@@ -38,6 +38,10 @@ ExclusiveArch: {{ hardware_architecture }}
 
 %if "%{vers_arch}" == "armv7hl"
 %define vers_arch arm
+%endif
+
+%if "%{vers_arch}" == "x86_64"
+%define vers_arch x64
 %endif
 
 BuildRequires:  tar
@@ -58,17 +62,17 @@ Requires: zlib%{?_isa}
 Requires: fontconfig%{?_isa}
 
 Provides: jre
-Provides: jre-21
-Provides: jre-21-headless
-Provides: jre-21-%{java_provides}
-Provides: jre-21-%{java_provides}-headless
+Provides: jre-17
+Provides: jre-17-headless
+Provides: jre-17-%{java_provides}
+Provides: jre-17-%{java_provides}-headless
 Provides: jre-headless
 Provides: jre-%{java_provides}
 Provides: jre-%{java_provides}-headless
 
 # First architecture ({{ hardware_architecture }})
-Source0: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK21U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
-Source1: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK21U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
+Source0: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK17U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
+Source1: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK17U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
 
 # Set the compression format to xz to be compatible with more Red Hat flavours. Newer versions of Fedora use zstd which
 # is not available on CentOS 7, for example. https://github.com/rpm-software-management/rpm/blob/master/macros.in#L353
@@ -116,7 +120,6 @@ if [ $1 -ge 1 ] ; then
     update-alternatives --install %{_bindir}/java java %{prefix}/bin/java %{priority} \
                         --slave %{_bindir}/jfr jfr %{prefix}/bin/jfr \
                         --slave %{_bindir}/jrunscript jrunscript %{prefix}/bin/jrunscript \
-                        --slave %{_bindir}/jwebserver jwebserver %{prefix}/bin/jwebserver \
                         --slave %{_bindir}/keytool keytool %{prefix}/bin/keytool \
                         --slave %{_bindir}/rmiregistry rmiregistry %{prefix}/bin/rmiregistry
 fi

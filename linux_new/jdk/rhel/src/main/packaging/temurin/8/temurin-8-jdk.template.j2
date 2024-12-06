@@ -41,6 +41,10 @@ ExclusiveArch: {{ hardware_architecture }}
 %define vers_arch arm
 %endif
 
+%if "%{vers_arch}" == "x86_64"
+%define vers_arch x64
+%endif
+
 BuildRequires:  tar
 BuildRequires:  wget
 
