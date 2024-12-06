@@ -128,7 +128,7 @@ pipeline {
                     // s390x and riscv64 are OK
                     // Reqd: x64 armv7hl aarch64 ppc64le
 
-                        packagearchRhel = (arch == 'x64') ? 'x64' :
+                        packagearchRhel = (arch == 'x64') ? 'x86_64' :
                                           (arch == 'arm') ? 'armv7hl' :
                                           (arch == 'aarch64') ? 'aarch64' :
                                           (arch == 'ppc64le') ? 'ppc64le' :
@@ -744,7 +744,7 @@ pipeline {
                                   echo "PackageArch = ${packagearchRhel}"
                                   echo "Building ${DistArrayElement} Package For ${PackageArrayElement}"
                                   // Construct Gradle Build Task Variable
-                                  def gBuildTask = (packagearchRhel in ['x86_64', 'amd64']) ? "package${PackageArrayElement}${DistArrayElement} check${PackageArrayElement}${DistArrayElement}" : "package${PackageArrayElement}${DistArrayElement}"
+                                        def gBuildTask = (packagearchRhel in ['x86_64', 'amd64']) ? "package${PackageArrayElement}${DistArrayElement} check${PackageArrayElement}${DistArrayElement}" : "package${PackageArrayElement}${DistArrayElement}"
                                   echo "Gradle Build Task : ${gBuildTask}"
                                    // Construct Gradle Build Command Line   
                                   def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchRhel}"
