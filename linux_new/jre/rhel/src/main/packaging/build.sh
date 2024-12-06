@@ -30,6 +30,8 @@ fi
 echo "DEBUG: building RH arch ${buildArch} with jre version ${buildVersion}"
 # Build specified target or build all
 if [ "${buildArch}" != "all" ]; then
+	## Fix x64 Build Arch
+	if [ "${buildArch}" == "x64" ]; then buildArch="x86_64" ; fi
 	targets=${buildArch}
 elif [ ${buildVersion} -gt 20 ]; then
         targets="x86_64 ppc64le aarch64 s390x riscv64"
