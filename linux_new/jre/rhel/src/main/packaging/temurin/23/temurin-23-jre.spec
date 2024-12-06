@@ -34,11 +34,7 @@ Packager:    Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>
 AutoReqProv: no
 Prefix: /usr/lib/jvm/%{name}
 
-%if "%{vers_arch}" == "x64"
-ExclusiveArch: x86_64
-%else
 ExclusiveArch: {{ hardware_architecture }}
-%endif
 
 %if "%{vers_arch}" == "armv7hl"
 %define vers_arch arm

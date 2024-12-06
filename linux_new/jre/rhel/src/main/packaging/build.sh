@@ -48,6 +48,7 @@ for spec in "$(ls /home/builder/build/generated/packaging/*.spec)"; do
 		# the sed command is to remove the trailing whitespace
 		# the second sed command is to replace %{arm} with armv7hl
 		ExclusiveArch=$(grep -E "^ExclusiveArch:" "$spec" | sed -e 's/ExclusiveArch: *//' | sed -e 's/%{arm}/armv7hl/g')
+		if [ "$ExclusiveArch" = "x64" ] ; then ExclusiveArch="x86_64" ; fi
 		[ -n "$ExclusiveArch" ] && targets="${ExclusiveArch}"
 	fi
 	for target in $targets; do
