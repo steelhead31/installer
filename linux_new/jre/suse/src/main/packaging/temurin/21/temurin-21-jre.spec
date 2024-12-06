@@ -1,11 +1,11 @@
-%global upstream_version 21.0.5+11
+%global upstream_version {{ upstream_version }}
 # Only [A-Za-z0-9.] allowed in version:
 # https://docs.fedoraproject.org/en-US/packaging-guidelines/Versioning/#_upstream_uses_invalid_characters_in_the_version
 # also not very intuitive:
 #  $ rpmdev-vercmp 21.0.0.0.0___21.0.0.0.0+1
 #  20.0.0.0.0___1 == 21.0.0.0.0+35
-%global spec_version 21.0.5.0.0.11
-%global spec_release 1
+%global spec_version {{ package_version }}
+%global spec_release {{ package_release_version }}
 %global priority 2100
 
 %global source_url_base https://github.com/adoptium/temurin21-binaries/releases/download
@@ -16,56 +16,9 @@
 # Map architecture to the expected value in the download URL; Allow for a
 # pre-defined value of vers_arch and use that if it's defined
 
-%ifarch x86_64
-%global vers_arch x64
-%global vers_arch2 ppc64le
-%global vers_arch3 aarch64
-%global vers_arch4 s390x
-%global vers_arch5 riscv64
+%global vers_arch {{ hardware_architecture }}
 %global src_num 0
 %global sha_src_num 1
-%endif
-%ifarch ppc64le
-%global vers_arch x64
-%global vers_arch2 ppc64le
-%global vers_arch3 aarch64
-%global vers_arch4 s390x
-%global vers_arch5 riscv64
-%global src_num 2
-%global sha_src_num 3
-%endif
-%ifarch aarch64
-%global vers_arch x64
-%global vers_arch2 ppc64le
-%global vers_arch3 aarch64
-%global vers_arch4 s390x
-%global vers_arch5 riscv64
-%global src_num 4
-%global sha_src_num 5
-%endif
-%ifarch s390x
-%global vers_arch x64
-%global vers_arch2 ppc64le
-%global vers_arch3 aarch64
-%global vers_arch4 s390x
-%global vers_arch5 riscv64
-%global src_num 6
-%global sha_src_num 7
-%endif
-%ifarch riscv64
-%global vers_arch x64
-%global vers_arch2 ppc64le
-%global vers_arch3 aarch64
-%global vers_arch4 s390x
-%global vers_arch5 riscv64
-%global src_num 8
-%global sha_src_num 9
-%endif
-# Allow for noarch SRPM build
-%ifarch noarch
-%global src_num 0
-%global sha_src_num 1
-%endif
 
 Name:        temurin-21-jre
 Version:     %{spec_version}
@@ -81,7 +34,15 @@ Packager:    Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>
 AutoReqProv: no
 Prefix: %{_libdir}/jvm/%{name}
 
-ExclusiveArch: x86_64 ppc64le aarch64 s390x riscv64
+%if "%{vers_arch}" == "x64"
+ExclusiveArch: x86_64
+%else
+ExclusiveArch: {{ hardware_architecture }}
+%endif
+
+%if "%{vers_arch}" == "armv7hl"
+%define vers_arch arm
+%endif
 
 BuildRequires:  tar
 BuildRequires:  wget
@@ -109,21 +70,9 @@ Provides: jre-headless
 Provides: jre-%{java_provides}
 Provides: jre-%{java_provides}-headless
 
-# First architecture (x86_64)
-Source0: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK21U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
-Source1: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK21U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
-# Second architecture (ppc64le)
-Source2: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK21U-jre_%{vers_arch2}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
-Source3: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK21U-jre_%{vers_arch2}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
-# Third architecture (aarch64)
-Source4: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK21U-jre_%{vers_arch3}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
-Source5: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK21U-jre_%{vers_arch3}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
-# Fourth architecture (s390x)
-Source6: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK21U-jre_%{vers_arch4}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
-Source7: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK21U-jre_%{vers_arch4}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
-# Fifth architecture (riscv64)
-Source8: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK21U-jre_%{vers_arch5}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
-Source9: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK21U-jre_%{vers_arch5}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
+# First architecture ({{ hardware_architecture }})
+Source0: %{source_url_base}/jdk%{upstream_version}/OpenJDK8U-jdk_%{vers_arch}_linux_hotspot_%{upstream_version_no_dash}.tar.gz
+Source1: %{source_url_base}/jdk%{upstream_version}/OpenJDK8U-jdk_%{vers_arch}_linux_hotspot_%{upstream_version_no_dash}.tar.gz.sha256.txt
 
 # Avoid build failures on some distros due to missing build-id in binaries.
 %global debug_package %{nil}
@@ -177,19 +126,5 @@ fi
 %{prefix}
 
 %changelog
-* Wed Oct 16 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 21.0.5.0.0.11-1
-- Eclipse Temurin 21.0.5+11 release.
-* Wed Jul 17 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 21.0.4.0.0.7-1
-- Eclipse Temurin 21.0.4+7 release.
-* Wed Apr 17 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 21.0.3.0.0.9-1
-- Eclipse Temurin 21.0.3+9 release.
-* Wed Feb 28 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 21.0.2.0.0.13-3
-- Eclipse Temurin 21.0.2+13 release.
-* Wed Feb 21 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 21.0.2.0.0.13-2
-- Eclipse Temurin 21.0.2+13 release.
-* Tue Jan 23 2024 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 21.0.2.0.0.13-1
-- Eclipse Temurin 21.0.2+13 release.
-* Tue Oct 24 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 21.0.1.0.0.12-1
-- Eclipse Temurin 21.0.1+12 release.
-* Wed Sep 20 2023 Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> 21.0.0.0.0.35-1
-- Eclipse Temurin 21.0.0+35 release 0.
+* {{ current_date }} Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> {{ package_version }}-{{ package_release_version }}
+- Eclipse Temurin {{ changelog_version }} JRE release.

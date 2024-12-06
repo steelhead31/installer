@@ -149,4 +149,4 @@ fi
 
 %changelog
 * {{ current_date }} Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> {{ package_version }}-{{ package_release_version }}
-- Eclipse Temurin {{ changelog_version }} release.
+- Eclipse Temurin {{ changelog_version }} JRE release.
