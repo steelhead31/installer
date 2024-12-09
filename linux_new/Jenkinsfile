@@ -687,6 +687,7 @@ stage('Build & Archive Package') {
 
                     try {
                         def PackagesToBuild = ['jdk', 'jre']
+                        def buildCli
                         PackagesToBuild.each { PackageArrayElement ->
                             echo "Building Package: ${PackageArrayElement} for ${DistArrayElement}"
                             def gBuildTask = (packagearch in ['x86_64', 'amd64']) ?
