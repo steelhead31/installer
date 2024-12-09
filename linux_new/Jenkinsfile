@@ -29,6 +29,7 @@ def packagearchRhel = ""
 def PackageReleaseVersion = "0"
 def upstreamversion = ""
 def upstreamversionARM32 = ""
+/* Have Some Default Node Labels */
 def PKGBUILDLABELAPK = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
 def PKGBUILDLABELDEB = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
 def PKGBUILDLABELRHEL = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
@@ -691,8 +692,28 @@ stage('Build & Archive Package') {
                             def gBuildTask = (packagearch in ['x86_64', 'amd64']) ?
                                 "package${PackageArrayElement}${DistArrayElement} check${PackageArrayElement}${DistArrayElement}" :
                                 "package${PackageArrayElement}${DistArrayElement}"
+                            
+                            // Override Package Arch To Be Dist Specific
 
-                            def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearch}"
+                            if (DistArrayElement == "rhel" || DistArrayElement == "suse") {
+                              echo "Using build CLI for RHEL/SUSE: ${buildCli}"
+                              buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchRhel}"
+                            } else if (DistArrayElement == "debian") {
+                               echo "Using build CLI for Debian: ${buildCli}"
+                               buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchDeb}"
+                            } else {
+                              echo "Using default build CLI: ${buildCli}"
+                              buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearch}"
+                            }
+                  
+                            if ((DistArrayElement == "rhel" || DistArrayElement == "suse") 
+                              def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchRhel}"
+                            else
+                              def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchDeb}"
+                            }
+                            //
+
+                            
                            
                             if (params.enableGpgSigning) {
                                 def privateKey = 'adoptium-artifactory-rsa-key'
@@ -718,250 +739,6 @@ stage('Build & Archive Package') {
     }
 }
 
-
-
-
-
-
-
-//           stage('Build & Archive Package') {
-//             when {
-//                 expression { return params.Release }
-//             }
-//               steps {
-//                   script {
-//                           DISTS_TO_BUILD.each { DistArrayElement ->
-
-//                           echo "Build Packages For Arch: ${arch}"
-//                           echo "Build Packages For PARCH: ${packagearch}"
-//                           echo "Building For Dist: ${DistArrayElement}"
-//                           echo "Build Product: ${PRODUCT}"
-//                           echo "Build Version : ${Release}"
-
-//                           // Docker --mount option requires BuildKit
-//                           env.DOCKER_BUILDKIT = 1
-//                           env.COMPOSE_DOCKER_CLI_BUILD = 1
-                          
-//                           // Prepare Workspace
-//                           cleanWs()
-//                           unstash 'installercode'
-                          
-//                           if (DistArrayElement == 'alpine') {
-//                             try {
-                                
-//                                 def PackagesToBuild = ['jdk', 'jre' ]
-//                                 PackagesToBuild.each { PackageArrayElement ->
-                                
-//                                   echo "Building Alpine Package For ${PackageArrayElement}"
-//                                   // Construct Gradle Build Task Variable
-//                                   def gBuildTask = (packagearch in ['x86_64', 'amd64']) ? "package${PackageArrayElement}${DistArrayElement} check${PackageArrayElement}${DistArrayElement}" : "package${PackageArrayElement}${DistArrayElement}"
-                                  
-//                                   echo "Gradle Build Task : ${gBuildTask}"
-                                  
-//                                   // Construct Gradle Build Command Line
-//                                   def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearch}"
-//                                   // Add signing if enabled to Gradle Build Command Line
-//                                   if (params.enableGpgSigning) {
-//                                     def privateKey = 'adoptium-artifactory-rsa-key'
-//                                     withCredentials([file(credentialsId: privateKey, variable: 'GPG_KEY')]) {
-//                                         buildCli += " -PGPG_KEY_PATH=${GPG_KEY}"
-//                                         }
-//                                     }
-                                    
-//                                   // Add gradle debugging if enabled
-//                                   buildCli = params.enableDebug.toBoolean() ? buildCli + ' --stacktrace' : buildCli
-//                                   echo "Build CLI : ${buildCli}"
-//                                   sh("$buildCli")
-//                               }
-//                             } catch (Exception ex) {
-//                                 echo 'Exception in buildAndTest: ' + ex
-//                                 currentBuild.result = 'FAILURE'  // set the whole pipeline 'red' if build or test fail. Do not use "error" that will not call "finally"
-//                             } finally {
-//                                     // should not allow empty archive, otherwise nothing created in the previous step: package and test result( not needed )
-//                                     archiveArtifacts artifacts: '**/build/ospackage/*,**/build/reports/**,**/packageTest/dependencies/deb/*', onlyIfSuccessful:false, allowEmptyArchive: false
-//                             }
-//                         }
-
-//                         if (DistArrayElement == 'debian') {
-//                           echo "Debug 11 - Debian Gradle Prep"
-//                           env._JAVA_OPTIONS = (packagearchDeb == 'armv7l' && pkDist == 'Debian') ? '' : '-Xmx4g'
-//                           try {
-//                             def PackagesToBuild = ['jdk', 'jre' ]
-//                                 PackagesToBuild.each { PackageArrayElement ->
-//                                   echo "PackageArch = ${packagearchDeb}"
-//                                   echo "Building Debian Package For ${PackageArrayElement}"
-//                                   // Construct Gradle Build Task Variable
-//                                   def gBuildTask = (packagearchDeb in ['x86_64', 'amd64']) ? "package${PackageArrayElement}${DistArrayElement} check${PackageArrayElement}${DistArrayElement}" : "package${PackageArrayElement}${DistArrayElement}"
-//                                   echo "Gradle Build Task : ${gBuildTask}"
-//                                    // Construct Gradle Build Command Line
-//                                   def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchDeb}"
-//                                   // Add signing if enabled to Gradle Build Command Line
-//                                   if (params.enableGpgSigning) {
-//                                     def privateKey = 'adoptium-artifactory-rsa-key'
-//                                     withCredentials([file(credentialsId: privateKey, variable: 'GPG_KEY')]) {
-//                                         buildCli += " -PGPG_KEY_PATH=${GPG_KEY}"
-//                                         }
-//                                     }
-                                    
-//                                   // Add gradle debugging if enabled
-//                                   buildCli = params.enableDebug.toBoolean() ? buildCli + ' --stacktrace' : buildCli
-//                                   echo "Build CLI : ${buildCli}"
-//                                   sh("$buildCli")
-//                                 } 
-//                               } catch (Exception ex) {
-//                                 echo 'Exception in buildAndTest: ' + ex
-//                                 currentBuild.result = 'FAILURE'  // set the whole pipeline 'red' if build or test fail. Do not use "error" that will not call "finally"
-//                               } finally {
-//                                   // should not allow empty archive, otherwise nothing created in the previous step: package and test result( not needed )
-//                                   archiveArtifacts artifacts: '**/build/ospackage/*,**/build/reports/**,**/packageTest/dependencies/deb/*', onlyIfSuccessful:false, allowEmptyArchive: false
-//                               }
-//                         }
-
-//                         // Start Of Rhel/Suse
-
-//                         if (DistArrayElement == "rhel" || DistArrayElement == "suse") {
-//                           echo "Debug 09C - RHEL/SUSE Gradle Prep"
-//                           try {
-//                             def PackagesToBuild = ['jdk', 'jre' ]
-//                                 PackagesToBuild.each { PackageArrayElement ->
-//                                   echo "PackageArch = ${packagearchRhel}"
-//                                   echo "Building ${DistArrayElement} Package For ${PackageArrayElement}"
-//                                   // Construct Gradle Build Task Variable
-//                                         def gBuildTask = (packagearchRhel in ['x86_64', 'amd64']) ? "package${PackageArrayElement}${DistArrayElement} check${PackageArrayElement}${DistArrayElement}" : "package${PackageArrayElement}${DistArrayElement}"
-//                                   echo "Gradle Build Task : ${gBuildTask}"
-//                                    // Construct Gradle Build Command Line   
-//                                   def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchRhel}"
-//                                   // Add signing if enabled to Gradle Build Command Line
-//                                   if (params.enableGpgSigning) {
-//                                     def privateKey = 'adoptium-artifactory-rsa-key'
-//                                     withCredentials([file(credentialsId: privateKey, variable: 'GPG_KEY')]) {
-//                                         buildCli += " -PGPG_KEY_PATH=${GPG_KEY}"
-//                                         }
-//                                     }
-                                    
-//                                   // Add gradle debugging if enabled
-//                                   buildCli = params.enableDebug.toBoolean() ? buildCli + ' --stacktrace' : buildCli
-//                                   echo "Build CLI : ${buildCli}"
-//                                   sh("$buildCli")
-//                                 } 
-//                               } catch (Exception ex) {
-//                                 echo 'Exception in buildAndTest: ' + ex
-//                                 currentBuild.result = 'FAILURE'  // set the whole pipeline 'red' if build or test fail. Do not use "error" that will not call "finally"
-//                               } finally {
-//                                   // should not allow empty archive, otherwise nothing created in the previous step: package and test result( not needed )
-//                                   archiveArtifacts artifacts: '**/build/ospackage/*,**/build/reports/**,**/packageTest/dependencies/deb/*', onlyIfSuccessful:false, allowEmptyArchive: false
-//                               }
-//                         }
-
-//                         // End Of Rhel/Suse
-
-                        
-//                      }
-//                     }
-//                 }
-
-// // Sample Gradle Build Tasks                            
-// // packageJdk - Creates Linux packages of a JDK.
-// // packageJdkAlpine - Creates deb package for Alpine flavours.
-// // packageJdkDebian - Creates deb package for Debian flavours.
-// // packageJdkRedHat - Creates RPM package for Red Hat flavours.
-// // packageJdkSuse - Creates RPM package for SUSE flavours.
-// // packageJre - Creates Linux packages of a JRE.
-// // packageJreAlpine - Creates deb package for Alpine flavours.
-// // packageJreDebian - Creates deb JRE package for Debian flavours.
-// // packageJreRedHat - Creates RPM package for Red Hat flavours.
-// // packageJreSuse - Creates RPM package for SUSE flavours.
-
-// // Verification tasks
-// // ------------------
-// // check - Runs all checks.
-// // checkCaCertificatesDebian - Tests the generated ca-certificate Debian packages.
-// // checkCaCertificatesPackage - Tests the generated Linux Adoptium CA Certificates package.
-// // checkJdkAlpine - Tests the generated Alpine packages.
-// // checkJdkDebian - Tests the generated Debian packages.
-// // checkJdkPackage - Tests the generated JDK packages.
-// // checkJdkRedHat - Tests the generated RPM packages for RedHat.
-// // checkJdkSuse - Tests the generated RPM packages for SUSE flavours.
-// // checkJreAlpine - Tests the generated Alpine packages.
-// // checkJreDebian - Tests the generated Debian packages.
-// // checkJrePackage - Tests the generated JRE packages.
-// // checkJreRedHat - Tests the generated RPM packages for RedHat.
-// // checkJreSuse - Tests the generated RPM packages for SUSE flavours.
-// //                 if (DISTRO != "Debian") { // for RPM based: RedHat / Suse / Alpine
-// // def privateKey = 'adoptium-artifactory-gpg-key'
-
-//                           // if (DistArrayElement == 'debian') { }
-//                           // if (DistArrayElement == "rhel" || DistArrayElement == "suse") { }
-// //                                       def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${env.PRODUCT} -PPRODUCT_VERSION=${VERSION} -PARCH=${debArchList[buildArch]}"
-// //             buildCli = params.enableDebug.toBoolean() ? buildCli + ' --stacktrace' : buildCli
-// //             sh("$buildCli")
-// //         }
-// //     } catch (Exception ex) {
-// //         echo 'Exception in buildAndTest: ' + ex
-// //         currentBuild.result = 'FAILURE'  // set the whole pipeline 'red' if build or test fail. Do not use "error" that will not call "finally"
-// //     } finally {
-// //         // should not allow empty archive, otherwise nothing created in the previous step: package and test result( not needed )
-// //         archiveArtifacts artifacts: '**/build/ospackage/*,**/build/reports/**,**/packageTest/dependencies/deb/*', onlyIfSuccessful:false, allowEmptyArchive: false
-// //     }
-// // }
-
-// // private void buildCli(String DISTRO, String buildArch, String GPG_KEY = null, String VERSION) {
-// //     def buildCli = "./gradlew package${TYPE}${DISTRO} check${TYPE}${DISTRO} --parallel -PPRODUCT=${env.PRODUCT} -PPRODUCT_VERSION=${VERSION} -PARCH=${buildArch}"
-// //     if (GPG_KEY) {
-// //         buildCli += " -PGPG_KEY=${GPG_KEY}"
-// //     }
-// //     if (params.enableDebug.toBoolean()) {
-// //         buildCli += " --stacktrace"
-// //     }
-// //     sh(buildCli)
-// // }
-//                     // Tar And Publish The Generated Build Files
-//                     // May Need Rework
-//                     //   sh "tar -czf ./package_build_files.tar.gz ./linux/jdk/* ./linux/jre/*"
-//                     //   sh "pwd"
-//                     //   sh "ls -ltr"
-//                     //   // Publish the tarball
-//                     //   archiveArtifacts artifacts: "package_build_files.tar.gz", allowEmptyArchive: false
-
-
-//                     //   def jenkinsStepAlpine() {
-//     // def temurinVersion = "${TYPE.toLowerCase()} ${VERSION} - ${ARCH}"
-//     // def VERSION = "${VERSION}"
-//     // echo "Installer Job for Temurin ${temurinVersion} - Alpine"
-//     // //make sure this is an array not a string
-//     // def apkArchAllList = []
-//     // // for one single ARCH add into array
-//     // apkArchAllList.add("${ARCH}")
-//     // // when ARCH = all, rewrite list
-//     // if ("${ARCH}" == 'all') {
-//     //     apkArchAllList = ['x86_64', 'aarch64']
-//     // }
-//     // // remove aarch64 for JDK20 and below
-//     // def versionInt = VERSION as int // Parse Version As Integer
-//     // if (versionInt < 21) {
-//     //       apkArchAllList.remove('aarch64')
-//     // }
-
-//     // apkArchAllList.each { ApkARCH ->
-//     //     // special handle: no label x86_64 only x64 for alpine agent
-//     //     def apkLabel = "${ApkARCH}&&docker"
-
-//     //     if ("${ApkARCH}" == 'x86_64') {
-//     //         apkLabel = 'x64&&dockerBuild'
-//     //     }
-//     //     // reallocate jenkins agent per element in list
-//     //     if (ApkARCH == 'x86_64' || ApkARCH == 'aarch64') {
-//     //     node("linux&&${apkLabel}") {
-//     //         setup('Alpine', "${ApkARCH}")
-//     //         tool name: 'jfrog-cli', type: 'jfrog'
-//     //         unstash 'installercode'
-//     //         buildAndTest('Alpine', "${ApkARCH}", "${VERSION}")
-//     //         if (params.uploadPackage.toBoolean()) {
-//     //             echo "Upload artifacts for ${VERSION} - ${ApkARCH} - Alpine"
-//     //             uploadArtifacts('Alpine', "${ApkARCH}", "${VERSION}")
-
-
-//           }
           stage('Publish Packages') {
             agent { label NODE_LABEL }
             tools {
