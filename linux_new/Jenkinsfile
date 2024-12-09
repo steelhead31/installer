@@ -705,16 +705,7 @@ stage('Build & Archive Package') {
                               echo "Using default build CLI: ${buildCli}"
                               buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearch}"
                             }
-                  
-                            if ((DistArrayElement == "rhel" || DistArrayElement == "suse") 
-                              def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchRhel}"
-                            else
-                              def buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchDeb}"
-                            }
-                            //
-
-                            
-                           
+                                             
                             if (params.enableGpgSigning) {
                                 def privateKey = 'adoptium-artifactory-rsa-key'
                                 withCredentials([file(credentialsId: privateKey, variable: 'GPG_KEY')]) {
