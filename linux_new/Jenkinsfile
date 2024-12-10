@@ -72,6 +72,8 @@ def cleanupFiles(files) {
     }
 }
 
+// Here
+
 def resolveDistro(artifacts) {
     if (artifacts.contains('alpine-linux')) {
         return 'alpine-linux'
@@ -133,7 +135,7 @@ def mapArchToRhelFormat(arch) {
 }
 
 def parseVersionNumbers(tag) {
-    def versionPattern = params.Tag.startsWith("jdk8") ?
+    def versionPattern = tag.startsWith("jdk8") ?
         /(jdk)(\d+u\d+)-(b\d+)/ :
         /(jdk)-(\d[\d.]*)([+_]\d+)?/
     def split = (tag =~ versionPattern)
@@ -148,7 +150,7 @@ def parseVersionNumbers(tag) {
     }
 }
 
-def constructFilenames(params, versionInfo, arch, distro) {
+def constructFilenames(params, versionInfo, arch, distro, jvm) {
     def filenames = []
     def filenamePrefix = "Open"
     def filenameSuffix = "tar.gz"
@@ -156,7 +158,7 @@ def constructFilenames(params, versionInfo, arch, distro) {
     def packageTypes = ['jdk', 'jre']
 
     packageTypes.each { packageType ->
-        def finalName = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${JVM}_${versionInfo.verversion}_${versionInfo.verbuild ?: 'N/A'}"
+        def finalName = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${jvm}_${versionInfo.verversion}_${versionInfo.verbuild ?: 'N/A'}"
         filenames.add([
             type: packageType,
             finalName: finalName,
@@ -167,6 +169,8 @@ def constructFilenames(params, versionInfo, arch, distro) {
     }
     return filenames
 }
+
+
 
 // Function Definitions End
 
@@ -207,7 +211,6 @@ pipeline {
           }
 // Print Parameters Stage - End
 // Process Parameters Stage - Start
-
 stage('Process Parameters') {
     agent { label NODE_LABEL }
     when {
@@ -234,7 +237,7 @@ stage('Process Parameters') {
 
             // Parse version numbers
             def versionInfo = parseVersionNumbers(params.Tag)
-            def filenameInfo = constructFilenames(params, versionInfo, arch, distro)
+            def filenameInfo = constructFilenames(params, versionInfo, arch, distro, JVM)
 
             filenameInfo.each { fileInfo ->
                 DLfilenames.add(fileInfo.finalName)
@@ -254,7 +257,6 @@ stage('Process Parameters') {
         }
     }
 }
-
           // stage('Process Parameters') {
           //   agent { label NODE_LABEL }
           //   when {
