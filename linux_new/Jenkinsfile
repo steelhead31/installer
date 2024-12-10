@@ -113,169 +113,291 @@ pipeline {
               }
           }
 // Print Parameters Stage - End
-// Process Parameters Stage - Start
-          stage('Process Parameters') {
-            agent { label NODE_LABEL }
-            when {
-                expression { return params.Release }
+stage('Process Parameters') {
+    agent { label NODE_LABEL }
+    when {
+        expression { return params.Release }
+    }
+    steps {
+        script {
+            // Determine distribution
+            if (params.Artifacts_To_Copy.contains('alpine-linux')) {
+                distro = "alpine-linux"
+            } else if (params.Artifacts_To_Copy.contains('linux')) {
+                distro = "linux"
+            } else {
+                error("The artifacts are for neither Linux nor Alpine.")
             }
-            steps {
-                script{
 
-                    // Figure Out Which Dist This Run Is For
+            // Determine architecture
+            if (params.Artifacts_To_Copy.contains('aarch64')) {
+                arch = "aarch64"
+            } else if (params.Artifacts_To_Copy.contains('x64')) {
+                arch = "x64"
+            } else if (params.Artifacts_To_Copy.contains('s390x')) {
+                arch = "s390x"
+            } else if (params.Artifacts_To_Copy.contains('arm')) {
+                arch = "arm"
+            } else if (params.Artifacts_To_Copy.contains('ppc64le')) {
+                arch = "ppc64le"
+            } else if (params.Artifacts_To_Copy.contains('riscv64')) {
+                arch = "riscv64"
+            } else {
+                error("The artifacts are for an unsupported architecture.")
+            }
 
-                    if (params.Artifacts_To_Copy.contains('alpine-linux')) {
-                        distro  = "alpine-linux"
-                    } else if (params.Artifacts_To_Copy.contains('linux')) {
-                        distro = "linux"
-                    } else {
-                        error("The Artifacts Are For Neither Linux OR Alpine")
-                    }
+            echo "DEBUG 00 - arch = ${arch}"
 
-                    // Figure Out Which Arch This Run Is For
-                    if (params.Artifacts_To_Copy.contains('aarch64')) {
-                        arch  = "aarch64"
-                    } else if (params.Artifacts_To_Copy.contains('x64')) {
-                        arch  = "x64"
-                    } else if (params.Artifacts_To_Copy.contains('s390x')) {
-                        arch  = "s390x"
-                    } else if (params.Artifacts_To_Copy.contains('arm')) {
-                        arch  = "arm"
-                    } else if (params.Artifacts_To_Copy.contains('ppc64le')) {
-                        arch  = "ppc64le"
-                    } else if (params.Artifacts_To_Copy.contains('riscv64')) {
-                        arch  = "riscv64"
-                    } else {
-                        error("The Artifacts Are For An Unsupported Architecture")
-                    }
+            // Set build labels
+            PKGBUILDLABELAPK = (arch == 'x64') ? 'build&&linux&&x64&&dockerBuild&&dynamicAzure' :
+                               (arch == 'aarch64') ? 'docker&&linux&&aarch64' :
+                               'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+            PKGBUILDLABELDEB = PKGBUILDLABELAPK
+            PKGBUILDLABELRHEL = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
 
-                    echo "DEBUG 00 - arch = ${arch}"
+            // Set package architecture for Debian
+            packagearchDeb = (arch == 'x64') ? 'amd64' :
+                             (arch == 'arm') ? 'armhf' :
+                             (arch == 'aarch64') ? 'arm64' :
+                             (arch == 'ppc64le') ? 'ppc64el' :
+                             (arch == 's390x') ? 's390x' :
+                             (arch == 'riscv64') ? 'riscv64' : 'unknown'
 
-                    // Derive The Build Arch Label For The Package Build Step
-                    // Note that Arm32 is built in a 32bit container on a 64 bit host
-                    PKGBUILDLABELAPK = (arch == 'x64') ? 'build&&linux&&x64&&dockerBuild&&dynamicAzure' :
-                                       (arch == 'aarch64') ? 'docker&&linux&&aarch64' : 
-                                      'build&&linux&&x64&&dockerBuild&&dynamicAzure'
-                                      
-                    PKGBUILDLABELDEB = (arch == 'x64') ? 'build&&linux&&x64&&dockerBuild&&dynamicAzure' :
-                                      (arch == 'arm') ? 'docker&&linux&&aarch64' : 
-                                      (arch == 'aarch64') ? 'docker&&linux&&aarch64' : 
-                                      (arch == 'ppc64le') ? 'build&&docker&&ppc64le' :
-                                      (arch == 's390x') ? 'docker&&s390x&&dockerBuild' :
-                                      (arch == 'riscv64') ? 'dockerbuild&&linux&&riscv64' :
-                                      'build&&linux&&x64&&dockerBuild&&dynamicAzure'
-                    
-                    PKGBUILDLABELRHEL = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
-                    
-                    // Derive The Package Specific Arch's based on the arch deduced from file paths
-                    // Fix Architectures To Be Debian Control File Compatible
-                    // s390x and riscv64 are OK
-                    // Reqd: amd64 armhf arm64 ppc64el
+            // Set package architecture for RHEL
+            packagearchRhel = (arch == 'x64') ? 'x86_64' :
+                              (arch == 'arm') ? 'armv7hl' :
+                              (arch == 'aarch64') ? 'aarch64' :
+                              (arch == 'ppc64le') ? 'ppc64le' :
+                              (arch == 's390x') ? 's390x' :
+                              (arch == 'riscv64') ? 'riscv64' : 'unknown'
 
-                        packagearchDeb = (arch == 'x64') ? 'amd64' :
-                                         (arch == 'arm') ? 'armhf' :
-                                         (arch == 'aarch64') ? 'arm64' :
-                                         (arch == 'ppc64le') ? 'ppc64el' :
-                                         (arch == 's390x') ? 's390x' :
-                                         (arch == 'riscv64') ? 'riscv64' :
-                                         'unknown'
+            // Parse version numbers
+            def vername = ''
+            def verversion = ''
+            def verbuild = ''
 
-                    // Fix Architectures To Be RHEL/Suse Control File Compatible
-                    // s390x and riscv64 are OK
-                    // Reqd: x64 armv7hl aarch64 ppc64le
-
-                        packagearchRhel = (arch == 'x64') ? 'x86_64' :
-                                          (arch == 'arm') ? 'armv7hl' :
-                                          (arch == 'aarch64') ? 'aarch64' :
-                                          (arch == 'ppc64le') ? 'ppc64le' :
-                                          (arch == 's390x') ? 's390x' :
-                                          (arch == 'riscv64') ? 'riscv64' :
-                                          'unknown'
-
-
-                    // Version Number Parsing
-
-                    def vername = ''
-                    def verversion = ''
-                    def verbuild = ''
-
-                    // Add Special Handling For JDK8 Version Number
-                    // jdk8u432-b06
-
-                    if (params.Tag?.startsWith("jdk8")) {
-                        echo "JDK 8"
-                        def split = (params.Tag =~ /(jdk)(\d+u\d+)-(b\d+)/)
-                        if (split.find()) {
-                            // println("Full Match: ${split[0][0]}")
-                            vername = split[0][1]          // "jdk"
-                            verversion = split[0][2]       // "8u432"
-                            verbuild = split[0][3]         // "06"
-                            } else {
-                                 error("The version string format does not match the expected pattern.")
-                        }
-                    } else {
-                        echo "Not JDK8"
-                    // Parse The Version Tag, Into Usable Components
-                    
-                    def split = (params.Tag =~ /(jdk)-(\d[\d.]*)([+_]\d+)?/)
-
-                    if (split.find()) {
-                        vername = split.group(1)
-                        verversion = split.group(2)
-                        verbuild = split.group(3)?.replaceAll("[+_]", "")
-                    } else {
-                        error("The version string format does not match the expected pattern.")
-                    }
-
-                    }
-
-                    echo "Debug 01"
-                    echo "01 - Vername = ${vername}"
-                    echo "02 - VerVer  = ${verversion}"
-                    echo "03 - VerBLD  = ${verbuild}"
-
-                    // Construct the Filename
-                    def filennameFinal =""
-                    def filenamePrefix = "Open"
-                    def filenameSuffix = "tar.gz"
-                    def filenameVersion = params.Version.toUpperCase() + "U"
-                    def packageTypes = ['jdk', 'jre']
-
-                    packageTypes.each { packageType ->
-                      if (params.Tag?.startsWith("jdk8")) {
-                        filenameFinal = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${JVM}_${verversion}${verbuild ?: 'N/A'}"
-                        ReleaseVersion = "${verversion}${verbuild ?: 'N/A'}"
-                      } else {
-                        filenameFinal = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${JVM}_${verversion}_${verbuild ?: 'N/A'}"
-                        ReleaseVersion = "${verversion}_${verbuild ?: 'N/A'}"
-                      }
-                      
-                      def JDKFinal = "${filenameFinal}.${filenameSuffix}"
-                      def SHAFinal = "${JDKFinal}.sha256.txt"
-                      
-                      // ReleaseVersion = "${verversion}_${verbuild ?: 'N/A'}"
-                      
-                      echo "JDK File Name : ${JDKFinal}"
-                      echo "SHA File Name : ${SHAFinal}"
-                      DLfilenames << JDKFinal
-                      DLfilenames << SHAFinal
-
-                      JDKArray << [ "${packageType}" , "${JDKFinal}", "${SHAFinal}" , "${distro}" , "${arch}" , "${ReleaseVersion}" ]
-                    }
-
-                    // Set Package Release Version If Repackage
-                    if (params.RePackage) {
-                        PackageReleaseVersion = params.Package_Increment
-                      }
-
-                      echo "Debug 01 - Parameters Including Pacakage Release Version"
-                      echo "Distro = ${distro}"
-                      echo "Product = ${PRODUCT}"
-                      echo "Package Release Version : ${PackageReleaseVersion}"
-                    
+            if (params.Tag?.startsWith("jdk8")) {
+                def split = (params.Tag =~ /(jdk)(\d+u\d+)-(b\d+)/)
+                if (split.find()) {
+                    vername = split[0][1]
+                    verversion = split[0][2]
+                    verbuild = split[0][3]
+                } else {
+                    error("The version string format does not match the expected pattern.")
+                }
+            } else {
+                def split = (params.Tag =~ /(jdk)-(\d[\d.]*)([+_]\d+)?/)
+                if (split.find()) {
+                    vername = split[0][1]
+                    verversion = split[0][2]
+                    verbuild = split[0][3]?.replaceAll("[+_]", "")
+                } else {
+                    error("The version string format does not match the expected pattern.")
                 }
             }
-          }
+
+            echo "Debug 01"
+            echo "01 - Vername = ${vername}"
+            echo "02 - VerVer = ${verversion}"
+            echo "03 - VerBLD = ${verbuild}"
+
+            // Construct filenames
+            def filenamePrefix = "Open"
+            def filenameVersion = params.Version.toUpperCase() + "U"
+            def packageTypes = ['jdk', 'jre']
+
+            packageTypes.each { packageType ->
+                def filenameFinal = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${JVM}_${verversion}_${verbuild ?: 'N/A'}"
+                def shaFilename = "${filenameFinal}.sha256.txt"
+
+                DLfilenames.add(filenameFinal)
+                DLfilenames.add(shaFilename)
+
+                JDKArray.add([
+                    packageType,
+                    filenameFinal,
+                    shaFilename,
+                    distro,
+                    arch,
+                    "${verversion}_${verbuild ?: 'N/A'}"
+                ])
+            }
+
+            // Set package release version if repackaging
+            if (params.RePackage) {
+                PackageReleaseVersion = params.Package_Increment
+            }
+
+            echo "Debug - Parameters Including Package Release Version"
+            echo "Distro = ${distro}"
+            echo "Product = ${PRODUCT}"
+            echo "Package Release Version = ${PackageReleaseVersion}"
+        }
+    }
+}
+// // Process Parameters Stage - Start
+//           stage('Process Parameters') {
+//             agent { label NODE_LABEL }
+//             when {
+//                 expression { return params.Release }
+//             }
+//             steps {
+//                 script{
+
+//                     // Figure Out Which Dist This Run Is For
+
+//                     if (params.Artifacts_To_Copy.contains('alpine-linux')) {
+//                         distro  = "alpine-linux"
+//                     } else if (params.Artifacts_To_Copy.contains('linux')) {
+//                         distro = "linux"
+//                     } else {
+//                         error("The Artifacts Are For Neither Linux OR Alpine")
+//                     }
+
+//                     // Figure Out Which Arch This Run Is For
+//                     if (params.Artifacts_To_Copy.contains('aarch64')) {
+//                         arch  = "aarch64"
+//                     } else if (params.Artifacts_To_Copy.contains('x64')) {
+//                         arch  = "x64"
+//                     } else if (params.Artifacts_To_Copy.contains('s390x')) {
+//                         arch  = "s390x"
+//                     } else if (params.Artifacts_To_Copy.contains('arm')) {
+//                         arch  = "arm"
+//                     } else if (params.Artifacts_To_Copy.contains('ppc64le')) {
+//                         arch  = "ppc64le"
+//                     } else if (params.Artifacts_To_Copy.contains('riscv64')) {
+//                         arch  = "riscv64"
+//                     } else {
+//                         error("The Artifacts Are For An Unsupported Architecture")
+//                     }
+
+//                     echo "DEBUG 00 - arch = ${arch}"
+
+//                     // Derive The Build Arch Label For The Package Build Step
+//                     // Note that Arm32 is built in a 32bit container on a 64 bit host
+//                     PKGBUILDLABELAPK = (arch == 'x64') ? 'build&&linux&&x64&&dockerBuild&&dynamicAzure' :
+//                                        (arch == 'aarch64') ? 'docker&&linux&&aarch64' : 
+//                                       'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+                                      
+//                     PKGBUILDLABELDEB = (arch == 'x64') ? 'build&&linux&&x64&&dockerBuild&&dynamicAzure' :
+//                                       (arch == 'arm') ? 'docker&&linux&&aarch64' : 
+//                                       (arch == 'aarch64') ? 'docker&&linux&&aarch64' : 
+//                                       (arch == 'ppc64le') ? 'build&&docker&&ppc64le' :
+//                                       (arch == 's390x') ? 'docker&&s390x&&dockerBuild' :
+//                                       (arch == 'riscv64') ? 'dockerbuild&&linux&&riscv64' :
+//                                       'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+                    
+//                     PKGBUILDLABELRHEL = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+                    
+//                     // Derive The Package Specific Arch's based on the arch deduced from file paths
+//                     // Fix Architectures To Be Debian Control File Compatible
+//                     // s390x and riscv64 are OK
+//                     // Reqd: amd64 armhf arm64 ppc64el
+
+//                         packagearchDeb = (arch == 'x64') ? 'amd64' :
+//                                          (arch == 'arm') ? 'armhf' :
+//                                          (arch == 'aarch64') ? 'arm64' :
+//                                          (arch == 'ppc64le') ? 'ppc64el' :
+//                                          (arch == 's390x') ? 's390x' :
+//                                          (arch == 'riscv64') ? 'riscv64' :
+//                                          'unknown'
+
+//                     // Fix Architectures To Be RHEL/Suse Control File Compatible
+//                     // s390x and riscv64 are OK
+//                     // Reqd: x64 armv7hl aarch64 ppc64le
+
+//                         packagearchRhel = (arch == 'x64') ? 'x86_64' :
+//                                           (arch == 'arm') ? 'armv7hl' :
+//                                           (arch == 'aarch64') ? 'aarch64' :
+//                                           (arch == 'ppc64le') ? 'ppc64le' :
+//                                           (arch == 's390x') ? 's390x' :
+//                                           (arch == 'riscv64') ? 'riscv64' :
+//                                           'unknown'
+
+
+//                     // Version Number Parsing
+
+//                     def vername = ''
+//                     def verversion = ''
+//                     def verbuild = ''
+
+//                     // Add Special Handling For JDK8 Version Number
+//                     // jdk8u432-b06
+
+//                     if (params.Tag?.startsWith("jdk8")) {
+//                         echo "JDK 8"
+//                         def split = (params.Tag =~ /(jdk)(\d+u\d+)-(b\d+)/)
+//                         if (split.find()) {
+//                             // println("Full Match: ${split[0][0]}")
+//                             vername = split[0][1]          // "jdk"
+//                             verversion = split[0][2]       // "8u432"
+//                             verbuild = split[0][3]         // "06"
+//                             } else {
+//                                  error("The version string format does not match the expected pattern.")
+//                         }
+//                     } else {
+//                         echo "Not JDK8"
+//                     // Parse The Version Tag, Into Usable Components
+                    
+//                     def split = (params.Tag =~ /(jdk)-(\d[\d.]*)([+_]\d+)?/)
+
+//                     if (split.find()) {
+//                         vername = split.group(1)
+//                         verversion = split.group(2)
+//                         verbuild = split.group(3)?.replaceAll("[+_]", "")
+//                     } else {
+//                         error("The version string format does not match the expected pattern.")
+//                     }
+
+//                     }
+
+//                     echo "Debug 01"
+//                     echo "01 - Vername = ${vername}"
+//                     echo "02 - VerVer  = ${verversion}"
+//                     echo "03 - VerBLD  = ${verbuild}"
+
+//                     // Construct the Filename
+//                     def filennameFinal =""
+//                     def filenamePrefix = "Open"
+//                     def filenameSuffix = "tar.gz"
+//                     def filenameVersion = params.Version.toUpperCase() + "U"
+//                     def packageTypes = ['jdk', 'jre']
+
+//                     packageTypes.each { packageType ->
+//                       if (params.Tag?.startsWith("jdk8")) {
+//                         filenameFinal = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${JVM}_${verversion}${verbuild ?: 'N/A'}"
+//                         ReleaseVersion = "${verversion}${verbuild ?: 'N/A'}"
+//                       } else {
+//                         filenameFinal = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${JVM}_${verversion}_${verbuild ?: 'N/A'}"
+//                         ReleaseVersion = "${verversion}_${verbuild ?: 'N/A'}"
+//                       }
+                      
+//                       def JDKFinal = "${filenameFinal}.${filenameSuffix}"
+//                       def SHAFinal = "${JDKFinal}.sha256.txt"
+                      
+//                       // ReleaseVersion = "${verversion}_${verbuild ?: 'N/A'}"
+                      
+//                       echo "JDK File Name : ${JDKFinal}"
+//                       echo "SHA File Name : ${SHAFinal}"
+//                       DLfilenames << JDKFinal
+//                       DLfilenames << SHAFinal
+
+//                       JDKArray << [ "${packageType}" , "${JDKFinal}", "${SHAFinal}" , "${distro}" , "${arch}" , "${ReleaseVersion}" ]
+//                     }
+
+//                     // Set Package Release Version If Repackage
+//                     if (params.RePackage) {
+//                         PackageReleaseVersion = params.Package_Increment
+//                       }
+
+//                       echo "Debug 01 - Parameters Including Pacakage Release Version"
+//                       echo "Distro = ${distro}"
+//                       echo "Product = ${PRODUCT}"
+//                       echo "Package Release Version : ${PackageReleaseVersion}"
+                    
+//                 }
+//             }
+//           }
 // Process Parameters Stage - End
 // Validate Artifacts Stage - Start
 stage('Validate Artifacts') {
