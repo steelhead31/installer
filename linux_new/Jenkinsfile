@@ -171,7 +171,6 @@ def constructFilenames(params, versionInfo, arch, distro, jvm) {
 }
 
 
-
 // Function Definitions End
 
 
@@ -211,6 +210,7 @@ pipeline {
           }
 // Print Parameters Stage - End
 // Process Parameters Stage - Start
+
 stage('Process Parameters') {
     agent { label NODE_LABEL }
     when {
@@ -242,7 +242,15 @@ stage('Process Parameters') {
             filenameInfo.each { fileInfo ->
                 DLfilenames.add(fileInfo.finalName)
                 DLfilenames.add("${fileInfo.finalName}.sha256.txt")
-                JDKArray.add(fileInfo.toList())
+                // Add as a list instead of attempting to call toList()
+                JDKArray.add([
+                    fileInfo.type,
+                    fileInfo.finalName,
+                    "${fileInfo.finalName}.sha256.txt",
+                    fileInfo.distro,
+                    fileInfo.arch,
+                    fileInfo.version
+                ])
             }
 
             // Set package release version if repackaging
@@ -257,6 +265,9 @@ stage('Process Parameters') {
         }
     }
 }
+
+
+
           // stage('Process Parameters') {
           //   agent { label NODE_LABEL }
           //   when {
