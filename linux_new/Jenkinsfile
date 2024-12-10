@@ -54,6 +54,7 @@ def validateChecksum(file, checksumFile) {
         error("Checksum mismatch for ${file}. Expected: ${expectedChecksum}, but found: ${calculatedChecksum}.")
     }
     echo "Checksum validation successful for ${file}."
+    return calculatedChecksum
 }
 
 // Helper function to extract upstream version from tar file
@@ -269,7 +270,7 @@ pipeline {
                 }
             }
           }
-
+// Validate Artifacts Stage - Start
 stage('Validate Artifacts') {
     agent { label NODE_LABEL }
     when {
@@ -286,17 +287,22 @@ stage('Validate Artifacts') {
                 def Binurl = "${dlURL}/${PFILE}"
                 def SHAurl = "${dlURL}/${PSIGN}"
 
+                // Download binary and checksum
                 validateAndDownloadArtifact(Binurl, PFILE)
                 validateAndDownloadArtifact(SHAurl, PSIGN)
-                validateChecksum(PFILE, PSIGN)
+
+                // Validate checksum
+                def calculatedChecksum = validateChecksum(PFILE, PSIGN)
 
                 if (PARCH == "arm") {
                     upstreamversionARM32 = extractUpstreamVersionFromTar(PFILE)
                 }
 
+                // Cleanup temporary files
                 cleanupFiles([PFILE, PSIGN])
 
-                ModifiedJDKArray << [PTYPE, PFILE, PSIGN, PDIST, PARCH, PVERS, calculatedChecksum(PFILE), Binurl]
+                // Update array with the validated information
+                ModifiedJDKArray << [PTYPE, PFILE, PSIGN, PDIST, PARCH, PVERS, calculatedChecksum, Binurl]
             }
 
             JDKArray = ModifiedJDKArray
@@ -304,6 +310,7 @@ stage('Validate Artifacts') {
     }
 }
 
+// Validate Artifacts Stage - End
 
 
           // stage('Validate Artifacts') {
