@@ -34,6 +34,45 @@ def PKGBUILDLABELAPK = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
 def PKGBUILDLABELDEB = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
 def PKGBUILDLABELRHEL = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
 
+// Function Definitions Begin
+
+// Helper function to download and validate files
+def validateAndDownloadArtifact(url, file) {
+    echo "Downloading: ${url}"
+    def result = sh(script: "curl -sSL -O ${url}", returnStatus: true)
+    if (result != 0) {
+        error("Failed to download ${file}. File not found or an error occurred.")
+    }
+    echo "Downloaded: ${file}"
+}
+
+// Helper function to validate checksum
+def validateChecksum(file, checksumFile) {
+    def expectedChecksum = sh(script: "awk '{print \$1}' ${checksumFile}", returnStdout: true).trim()
+    def calculatedChecksum = sh(script: "sha256sum ${file} | awk '{print \$1}'", returnStdout: true).trim()
+    if (expectedChecksum != calculatedChecksum) {
+        error("Checksum mismatch for ${file}. Expected: ${expectedChecksum}, but found: ${calculatedChecksum}.")
+    }
+    echo "Checksum validation successful for ${file}."
+}
+
+// Helper function to extract upstream version from tar file
+def extractUpstreamVersionFromTar(file) {
+    def version = sh(script: "tar xvfz \"${file}\" | head -n 1 | cut -d/ -f1", returnStdout: true).trim()
+    sh "rm -rf \"${version}\""
+    echo "Extracted upstream version: ${version}"
+    return version
+}
+
+// Helper function to cleanup files
+def cleanupFiles(files) {
+    files.each { file ->
+        sh "rm -rf ${file}"
+    }
+}
+
+// Function Definitions End
+
 
 /* Pipeline Declaration */
 
@@ -230,85 +269,122 @@ pipeline {
                 }
             }
           }
-          stage('Validate Artifacts') {
-            agent { label NODE_LABEL }
-            when {
-                expression { return params.Release }
+
+stage('Validate Artifacts') {
+    agent { label NODE_LABEL }
+    when {
+        expression { return params.Release }
+    }
+    steps {
+        script {
+            echo "Validating Artifacts"
+            echo "Tuples:"
+            echo "${JDKArray}"
+
+            JDKArray.each { ArrayElement ->
+                def (PTYPE, PFILE, PSIGN, PDIST, PARCH, PVERS) = ArrayElement
+                def Binurl = "${dlURL}/${PFILE}"
+                def SHAurl = "${dlURL}/${PSIGN}"
+
+                validateAndDownloadArtifact(Binurl, PFILE)
+                validateAndDownloadArtifact(SHAurl, PSIGN)
+                validateChecksum(PFILE, PSIGN)
+
+                if (PARCH == "arm") {
+                    upstreamversionARM32 = extractUpstreamVersionFromTar(PFILE)
+                }
+
+                cleanupFiles([PFILE, PSIGN])
+
+                ModifiedJDKArray << [PTYPE, PFILE, PSIGN, PDIST, PARCH, PVERS, calculatedChecksum(PFILE), Binurl]
             }
-              steps {
-                  script {
-                    echo "Validating Artifacts"
-                    // Debugging
-                    echo "Tuples :"
-                    echo "${JDKArray}"
 
-                    JDKArray.each { ArrayElement ->
-                      def PTYPE = ArrayElement[0]
-                      def PFILE = ArrayElement[1]
-                      def PSIGN = ArrayElement[2]
-                      def PDIST = ArrayElement[3]
-                      def PARCH = ArrayElement[4]
-                      def PVERS = ArrayElement[5]
+            JDKArray = ModifiedJDKArray
+        }
+    }
+}
 
-                      // Prepare For Downloads & Verification
-                      def Binurl = "${dlURL}/${PFILE}"
-                      def SHAurl = "${dlURL}/${PSIGN}"
-                      def Bincommand = "curl -sSL -O ${Binurl}"
-                      def Shacommand = "curl -sSL -O ${SHAurl}"
 
-                      echo "Downloading Binary: ${Binurl}"
-                      // echo "Command : ${Bincommand}"
-                      // Download Binary
 
-                      def Binresult = sh(script: Bincommand, returnStatus: true)
+          // stage('Validate Artifacts') {
+          //   agent { label NODE_LABEL }
+          //   when {
+          //       expression { return params.Release }
+          //   }
+          //     steps {
+          //         script {
+          //           echo "Validating Artifacts"
+          //           // Debugging
+          //           echo "Tuples :"
+          //           echo "${JDKArray}"
 
-                      if (Binresult != 0) {
-                        error("Failed to download ${PFILE}. File not found or an error occurred.")
-                        } else {
-                            echo "Downloaded: ${PFILE}"
-                        }
+          //           JDKArray.each { ArrayElement ->
+          //             def PTYPE = ArrayElement[0]
+          //             def PFILE = ArrayElement[1]
+          //             def PSIGN = ArrayElement[2]
+          //             def PDIST = ArrayElement[3]
+          //             def PARCH = ArrayElement[4]
+          //             def PVERS = ArrayElement[5]
 
-                      echo "Downloading Signature: ${SHAurl}"
-                      //echo "Command : ${Shacommand}"
-                      // Download SHA
-                      def Sharesult = sh(script: Shacommand, returnStatus: true)
-                      if (Sharesult != 0) {
-                        error("Failed to download ${PSIGN}. File not found or an error occurred.")
-                        } else {
-                            echo "Downloaded: ${PSIGN}"
-                        }
+          //             // Prepare For Downloads & Verification
+          //             def Binurl = "${dlURL}/${PFILE}"
+          //             def SHAurl = "${dlURL}/${PSIGN}"
+          //             def Bincommand = "curl -sSL -O ${Binurl}"
+          //             def Shacommand = "curl -sSL -O ${SHAurl}"
 
-                        // Validate Checksum Of Binary Using Signature
+          //             echo "Downloading Binary: ${Binurl}"
+          //             // echo "Command : ${Bincommand}"
+          //             // Download Binary
 
-                        def expectedChecksum = sh(script: "cat ${PSIGN} | awk '{print \$1}'", returnStdout: true).trim()
-                        def calculatedChecksum = sh(script: "sha256sum ${PFILE} | awk '{print \$1}'", returnStdout: true).trim()
-                        if (expectedChecksum != calculatedChecksum) {
-                            error("Checksum mismatch for ${PFILE}. Expected: ${expectedChecksum}, but found: ${calculatedChecksum}.")
-                            } else {
-                            echo "Checksum validation successful for ${PFILE}."
-                            if (PARCH == "arm") {
-                                echo "DEBUGZZ"
-                                // Extract upstream version from the tar file
-                                upstreamversionARM32 = sh(
-                                    script: "tar xvfz \"${PFILE}\" | head -n 1 | cut -d/ -f1",
-                                    returnStdout: true).trim()
-                                // Remove the extracted directory safely
-                                sh "rm -rf \"${upstreamversionARM32}\""
-                                echo "UPS = ${upstreamversionARM32}"
-                             }
-                            }
-                        // Remove This Later
-                        sh "rm -rf ${PFILE}"
-                        sh "rm -rf ${PSIGN}"
-                        // Remove
-                        // Create New Array With Checksum & URL Added
-                        ModifiedJDKArray << [ "${PTYPE}" , "${PFILE}" , "${PSIGN}" , "${PDIST}" , "${PARCH}" , "${PVERS}" , "${calculatedChecksum}" , "${Binurl}" ]
-                    }
-                    // Assign Modified Array Back To Initial Array
-                    JDKArray = ModifiedJDKArray
-                  }
-              }
-          }
+          //             def Binresult = sh(script: Bincommand, returnStatus: true)
+
+          //             if (Binresult != 0) {
+          //               error("Failed to download ${PFILE}. File not found or an error occurred.")
+          //               } else {
+          //                   echo "Downloaded: ${PFILE}"
+          //               }
+
+          //             echo "Downloading Signature: ${SHAurl}"
+          //             //echo "Command : ${Shacommand}"
+          //             // Download SHA
+          //             def Sharesult = sh(script: Shacommand, returnStatus: true)
+          //             if (Sharesult != 0) {
+          //               error("Failed to download ${PSIGN}. File not found or an error occurred.")
+          //               } else {
+          //                   echo "Downloaded: ${PSIGN}"
+          //               }
+
+          //               // Validate Checksum Of Binary Using Signature
+
+          //               def expectedChecksum = sh(script: "cat ${PSIGN} | awk '{print \$1}'", returnStdout: true).trim()
+          //               def calculatedChecksum = sh(script: "sha256sum ${PFILE} | awk '{print \$1}'", returnStdout: true).trim()
+          //               if (expectedChecksum != calculatedChecksum) {
+          //                   error("Checksum mismatch for ${PFILE}. Expected: ${expectedChecksum}, but found: ${calculatedChecksum}.")
+          //                   } else {
+          //                   echo "Checksum validation successful for ${PFILE}."
+          //                   if (PARCH == "arm") {
+          //                       echo "DEBUGZZ"
+          //                       // Extract upstream version from the tar file
+          //                       upstreamversionARM32 = sh(
+          //                           script: "tar xvfz \"${PFILE}\" | head -n 1 | cut -d/ -f1",
+          //                           returnStdout: true).trim()
+          //                       // Remove the extracted directory safely
+          //                       sh "rm -rf \"${upstreamversionARM32}\""
+          //                       echo "UPS = ${upstreamversionARM32}"
+          //                    }
+          //                   }
+          //               // Remove This Later
+          //               sh "rm -rf ${PFILE}"
+          //               sh "rm -rf ${PSIGN}"
+          //               // Remove
+          //               // Create New Array With Checksum & URL Added
+          //               ModifiedJDKArray << [ "${PTYPE}" , "${PFILE}" , "${PSIGN}" , "${PDIST}" , "${PARCH}" , "${PVERS}" , "${calculatedChecksum}" , "${Binurl}" ]
+          //           }
+          //           // Assign Modified Array Back To Initial Array
+          //           JDKArray = ModifiedJDKArray
+          //         }
+          //     }
+          // }
           stage('Generate Spec File') {
             agent { label NODE_LABEL }
             when {
@@ -497,14 +573,14 @@ pipeline {
                             }
                         }
 
-                        // Override Build Dists For Debian
-                        PKGBUILDLABEL = (PARCH == 'x64') ? 'build&&linux&&x64&&dockerBuild&&dynamicAzure' :
-                                        (PARCH == 'aarch64') ? 'armv8&&build&&dockerBuild&&dockerhost' :
-                                        (PARCH == 'ppc64le') ? 'linux&&dockerBuild&&dockerHost&&ppc64le' :
-                                        (PARCH == 's390x') ? 'linux&&dockerBuild&&dockerHost&&s390x' :
-                                        (PARCH == 'arm') ? 'armv8&&build&&dockerBuild&&dockerhost' :
-                                        (PARCH == 'riscv64') ? 'riscv64&&dockerInstaller' :
-                                        'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+                        // // Override Build Dists For Debian
+                        // PKGBUILDLABEL = (PARCH == 'x64') ? 'build&&linux&&x64&&dockerBuild&&dynamicAzure' :
+                        //                 (PARCH == 'aarch64') ? 'armv8&&build&&dockerBuild&&dockerhost' :
+                        //                 (PARCH == 'ppc64le') ? 'linux&&dockerBuild&&dockerHost&&ppc64le' :
+                        //                 (PARCH == 's390x') ? 'linux&&dockerBuild&&dockerHost&&s390x' :
+                        //                 (PARCH == 'arm') ? 'armv8&&build&&dockerBuild&&dockerhost' :
+                        //                 (PARCH == 'riscv64') ? 'riscv64&&dockerInstaller' :
+                        //                 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
 
                         // echo "Debug 07"
                         // echo "PVERS : ${PVERS}"
@@ -577,8 +653,8 @@ pipeline {
                         }
 
                         // Override Build Dists For RHEL ( always builds on x64 )
-                        PKGBUILDLABEL = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
-                        //PKGBUILDLABEL = 'dockerhost-azure-ubuntu2204-x64-1'
+                        // PKGBUILDLABEL = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+                        // PKGBUILDLABEL = 'dockerhost-azure-ubuntu2204-x64-1'
 
                         // Figure Out Upstream Version
 
