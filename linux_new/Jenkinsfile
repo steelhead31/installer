@@ -288,10 +288,10 @@ pipeline {
                         PackageReleaseVersion = params.Package_Increment
                       }
 
-                      // echo "Debug 01 - Parameters Including Pacakage Release Version"
-                      // echo "Distro = ${distro}"
-                      // echo "Product = ${PRODUCT}"
-                      // echo "Package Release Version : ${PackageReleaseVersion}"
+                      echo "Debug 01 - Parameters Including Pacakage Release Version"
+                      echo "Distro = ${distro}"
+                      echo "Product = ${PRODUCT}"
+                      echo "Package Release Version : ${PackageReleaseVersion}"
                 }
             }
           }
@@ -404,10 +404,6 @@ stage('Validate Artifacts') {
                           }
                       }
 
-                      echo "Release = ${Release}"
-                      echo "Version = ${Version}"
-                      echo "Build = ${Build}"
-                      
                       def TemplateType = ArrayElement[0]
                       def packagever
                       packagearch = PARCH
@@ -507,7 +503,7 @@ stage('Validate Artifacts') {
                         // Upstream Arch For RISCV : **/linux/riscv64/temurin/*.tar.gz,**/linux/riscv64/temurin/*.zip,**/linux/riscv64/temurin/*.sha256.txt,**/linux/riscv64/temurin/*.msi,**/linux/riscv64/temurin/*.pkg,**/linux/riscv64/temurin/*.json,**/linux/riscv64/temurin/*.sig
                         // Upstream Arch For ARM32 : **/linux/arm/temurin/*.tar.gz,**/linux/arm/temurin/*.zip,**/linux/arm/temurin/*.sha256.txt,**/linux/arm/temurin/*.msi,**/linux/arm/temurin/*.pkg,**/linux/arm/temurin/*.json,**/linux/arm/temurin/*.sig
                         
-                        // Debia  n Requires 3 Files To Be Generated
+                        // Debian Requires 3 Files To Be Generated
                         def debianFiles = ['changelog', 'control', 'rules']
 
                           if (Release == "8" ) {
