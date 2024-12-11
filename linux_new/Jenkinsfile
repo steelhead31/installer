@@ -589,6 +589,7 @@ stage('Validate Artifacts') {
 
                         if (Release == "8" ) {
                             echo "RHEL/SUSE JDK8"
+                            upstreamversion = params.Tag.replaceFirst("^jdk", "")
                             // Extract components from original format
                             def major = PVERS[0]           // Extract major version '8'
                             def versparser = (PVERS =~ /(\d+)u(\d+)b(\d+)/)
@@ -601,6 +602,7 @@ stage('Validate Artifacts') {
                         } else {
                             echo "RHEL/SUSE Not JDK8"
                             echo "Deubg 09A - ${PVERS}"
+                            upstreamversion = params.Tag.replaceFirst("^jdk-", "")
 
                             // def major = PVERS[0]           // Extract major version '8'
                             // def versparser = (PVERS =~ /(\d+)u(\d+)b(\d+)/)
@@ -622,7 +624,7 @@ stage('Validate Artifacts') {
 
                         // Figure Out Upstream Version
 
-                        upstreamversion = params.Tag.replaceFirst("^jdk", "")
+                        
 
                         if (PARCH == 'arm') {
                         // If JDK8 ARM32, Then Need To Deduce Correct Upstream
