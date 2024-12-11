@@ -579,6 +579,12 @@ stage('Validate Artifacts') {
                         
                         if (DistArrayElement == "rhel" || DistArrayElement == "suse") {
                         echo "Debug 09 - Rhel & Suse"
+                        echo "PVERS : ${PVERS}"
+                        echo "Release = ${Release}"
+                        echo "Version = ${Version}"
+                        echo "Build = ${Build}"
+                        echo "PackageVer = ${packagever}"
+                        echo "PackageArch = ${packagearch}"
 
                         if (Release == "8" ) {
                             echo "RHEL/SUSE JDK8"
