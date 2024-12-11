@@ -289,9 +289,9 @@ pipeline {
                       }
 
                       echo "Debug 01 - Parameters Including Pacakage Release Version"
-                      echo "Distro = ${distro}"
-                      echo "Product = ${PRODUCT}"
-                      echo "Package Release Version : ${PackageReleaseVersion}"
+                      // echo "Distro = ${distro}"
+                      // echo "Product = ${PRODUCT}"
+                      // echo "Package Release Version : ${PackageReleaseVersion}"
                 }
             }
           }
@@ -608,11 +608,11 @@ stage('Validate Artifacts') {
                             // def build = versparser[0][3].replaceAll(/^0+/, '')    // Extract '6'
                             // def formattedBuild = build.toString()padLeft(2, '0')
                             if (Version == "null") {
-                                packagever = "${Release}.0.0.0.0.${build}"
-                                changelogversion = "${Release}.0.${minor}+${build}"
+                                packagever = "${Release}.0.0.0.0.${Build}"
+                                changelogversion = "${Release}.0.${Version}+${Build}"
                             } else {
-                                packagever = "${Release}.${version}.0.${build}"
-                                changelogversion = "${Release}.0.${minor}+${build}"
+                                packagever = "${Release}.${Version}.0.${Build}"
+                                changelogversion = "${Release}.0.${Version}+${Build}"
                             }
                         }
 
