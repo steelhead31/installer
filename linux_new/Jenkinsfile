@@ -533,13 +533,13 @@ stage('Validate Artifacts') {
                         //                 (PARCH == 'riscv64') ? 'riscv64&&dockerInstaller' :
                         //                 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
 
-                        // echo "Debug 07"
-                        // echo "PVERS : ${PVERS}"
-                        // echo "Release = ${Release}"
-                        // echo "Version = ${Version}"
-                        // echo "Build = ${Build}"
-                        // echo "PackageVer = ${packagever}"
-                        // echo "PackageArch = ${packagearch}"
+                        echo "Debug 07"
+                        echo "PVERS : ${PVERS}"
+                        echo "Release = ${Release}"
+                        echo "Version = ${Version}"
+                        echo "Build = ${Build}"
+                        echo "PackageVer = ${packagever}"
+                        echo "PackageArch = ${packagearch}"
 
                         debianFiles.each { debianFilesArrayElement -> 
 
@@ -593,7 +593,13 @@ stage('Validate Artifacts') {
                             changelogversion = "${major}.0.${minor}-b${formattedBuild}"
                         } else {
                             echo "RHEL/SUSE Not JDK8"
-                            def formattedBuild = build.toString()padLeft(2, '0')
+                            echo "Deubg 09A - ${PVERS}"
+
+                            // def major = PVERS[0]           // Extract major version '8'
+                            // def versparser = (PVERS =~ /(\d+)u(\d+)b(\d+)/)
+                            // def minor = versparser[0][2]  // Extract '432'
+                            // def build = versparser[0][3].replaceAll(/^0+/, '')    // Extract '6'
+                            // def formattedBuild = build.toString()padLeft(2, '0')
                             if (Version == "null") {
                                 packagever = "${Release}.0.0.0.0.${build}"
                                 changelogversion = "${Release}.0.${minor}+${build}"
