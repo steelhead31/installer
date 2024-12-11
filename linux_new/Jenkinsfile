@@ -100,7 +100,6 @@ def getPackageBuildLabel(String arch, String distro) {
 
 
 /* Pipeline Declaration */
-
 pipeline {
     agent none  // No Default Agent
     options {
@@ -118,7 +117,7 @@ pipeline {
           booleanParam(name: 'RePackage', defaultValue: false, description: 'Tick if this is a republish of an existing package, ie xx.xxx.2 , rather than the base release of a package (1)')
           string(name: 'Package_Increment', defaultValue: '1', description: 'This is the incremental number used for re-releases of package versions - Should be set appropriately if RePackage is True')
       }
-
+// Stage Definition - Start
       stages {
 // Print Parameters Stage - Start
           stage('Print Parameters') {
@@ -774,6 +773,7 @@ stage('Build & Archive Package') {
     }
 }
 // Build And Archive Packages Stage - End
+// Publish Packages Stage - Start
           stage('Publish Packages') {
             agent { label NODE_LABEL }
             tools {
@@ -788,16 +788,8 @@ stage('Build & Archive Package') {
                   }
               }
           }
-          stage('Store Spec File') {
-            agent { label NODE_LABEL }
-            when {
-                expression { return params.Release }
-            }
-              steps {
-                  script {
-                      echo "Store Spec File"
-                  }
-              }
-          }
-      }
+// Publish Packages Stage - End
   }
+// Stage Definition - End
+}
+// Pipeline Definition - End
