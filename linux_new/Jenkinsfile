@@ -86,7 +86,8 @@ def getPackageBuildLabel(String arch, String distro) {
                    (arch == 'aarch64') ? 'docker&&linux&&aarch64' :
                    (arch == 'ppc64le') ? 'build&&docker&&ppc64le' :
                    (arch == 's390x') ? 'docker&&s390x&&dockerBuild' :
-                   (arch == 'riscv64') ? 'dockerbuild&&linux&&riscv64' :
+                   (arch == 'riscv64') ? 'dockerBuild&&linux&&riscv64' :
+                   
                    'build&&linux&&x64&&dockerBuild&&dynamicAzure'
 
         case 'RHEL':
