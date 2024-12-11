@@ -403,6 +403,10 @@ stage('Validate Artifacts') {
                             error("Version string format is invalid: ${PVERS}")
                           }
                       }
+
+                      echo "Release = ${Release}"
+                      echo "Version = ${Version}"
+                      echo "Build = ${Build}"
                       
                       def TemplateType = ArrayElement[0]
                       def packagever
