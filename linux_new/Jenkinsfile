@@ -880,7 +880,7 @@ stage('Build & Archive Package') {
                                  echo "Distro = ${UpDistro}"
                                  echo "buildArch = ${arch}"
                                  echo "FileName = ${FileName}"
-                                 CheckAndUpload(Target, UpDistro, buildArch, '', '', '', '', '' , FileName)
+                                 CheckAndUpload(Target, UpDistro, arch, '', '', '', '', '' , FileName)
                                  //def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
                         }
                     } else if (distro == 'linux') {
