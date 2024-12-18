@@ -19,6 +19,7 @@ def deb_distros = [
     "bookworm", // Debian/12
     "bullseye", // Debian/11
     "buster",   // Debian/10
+    "oracular", // Ubuntu/24.10 (STS)
     "noble",    // Ubuntu/24.04 (LTS)
     "jammy",    // Ubuntu/22.04 (LTS)
     "focal",    // Ubuntu/20.04 (LTS)
@@ -881,19 +882,26 @@ stage('Build & Archive Package') {
                                  echo "buildArch = ${arch}"
                                  echo "FileName = ${FileName}"
                                  CheckAndUpload(Target, UpDistro, arch, '', '', '', '', '' , FileName)
-                                 //def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
                         }
                     } else if (distro == 'linux') {
                         echo "Linux Upload"
-                        echo ""
                         echo "Preparing For Debian Upload"
+                        def DebDistro = "Debian"
                         def PackFilesDeb = findFiles(glob: "**/build/ospackage/temurin-*.deb") // List All Packages To Upload
                         for (PackFile in PackFilesDeb) {
                             def FileName = PackFile.name
                             def Target = "https://adoptium.jfrog.io/artifactory/deb/pool/main/t/temurin-${Release}/${FileName}"
-                            echo "Deb FileName = ${FileName}"
+                            echo "Debug 1000 - Debian Upload Debugging"
                             echo "Target = ${Target}"
-                            //CheckAndUpload(Target, Distro, BUILDARCH, VERSION, DISTROLIST, '', '', '', '' )"
+                            echo "Distro = ${DebDistro}"
+                            echo "buildArch = ${arch}"
+                            echo "FileName = ${FileName}"
+                            deb_distros.each { deb_distro ->
+                            echo "Deb Dist = ${deb_distro}"
+                            //CheckAndUpload(Target, DebDistro, arch, Release, DISTROLIST, '', '', '', '' )"
+                            //def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
+                            }
+                            
                         }
                         echo "Preparing For RHEL Upload"
                         def PackFilesRHEL = findFiles(glob: "**/rhel/build/ospackage/t*.rpm") // List All Packages To Upload For Temurin
