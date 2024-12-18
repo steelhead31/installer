@@ -4,13 +4,56 @@
 
 def NODE_LABEL = 'build&&linux&&x64&&dockerBuild&&dynamicAzure' // Default node
 def PRODUCT = 'temurin'
-  def JVM = 'hotspot'
+def JVM = 'hotspot'
 def baseURL = "https://github.com/adoptium/"
 def binaryRepo = "${params.VERSION.replace('jdk', 'temurin')}-binaries/releases/tag/${params.TAG}"
 def binaryDLRepo = "${params.VERSION.replace('jdk', 'temurin')}-binaries/releases/download/${params.TAG}"
 def fullURL = "${baseURL}/${binaryRepo}"
 def dlURL = "${baseURL}/${binaryDLRepo}"
 def PKGBUILDLABEL=""
+
+/* Supported Distro Arrays */
+// Remember If Adding An Deb Distro to update the cacerts package //
+def deb_distros = [
+    "trixie", // Debian/13
+    "bookworm", // Debian/12
+    "bullseye", // Debian/11
+    "buster",   // Debian/10
+    "noble",    // Ubuntu/24.04 (LTS)
+    "jammy",    // Ubuntu/22.04 (LTS)
+    "focal",    // Ubuntu/20.04 (LTS)
+    "bionic"   // Ubuntu/18.04 (LTS)
+    ]
+
+def rhel_distros = [
+    'rpm/centos/7',
+    'rpm/rocky/8',
+    'rpm/rhel/7',
+    'rpm/rhel/8',
+    'rpm/rhel/9',
+    'rpm/fedora/35',
+    'rpm/fedora/36',
+    'rpm/fedora/37',
+    'rpm/fedora/38',
+    'rpm/fedora/39',
+    'rpm/fedora/40',
+    'rpm/fedora/41',
+    'rpm/fedora/42',
+    'rpm/fedora/rawhide',
+    'rpm/oraclelinux/7',
+    'rpm/oraclelinux/8',
+    'rpm/amazonlinux/2'
+    ]
+
+def suse_distros = [
+    'rpm/opensuse/15.3',
+    'rpm/opensuse/15.4',
+    'rpm/opensuse/15.5',
+    'rpm/sles/12',
+    'rpm/sles/15'
+    ]
+
+/* End Of Distro Definitions*/
 
 // Global Variables
 def DLfilenames = []
@@ -97,6 +140,76 @@ def getPackageBuildLabel(String arch, String distro) {
             error("Unsupported distro: ${distro}")
     }
 }
+
+// Helper function to check and upload files
+def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
+  echo "Entering Check & Upload"
+  // Received From Alpine CheckAndUpload(Target, UpDistro, buildArch, '', '', '', '', '' , FileName)
+  echo "Debug 1001"
+  echo "Target = ${Target}"
+  echo "Distro = ${Distro}"
+  echo "Arch = ${BuildArch}"
+  echo "DList = ${DistroList}"
+  echo "Value = ${Value}"
+  echo "PackageDir = ${PackageDir}"
+  echo "Key = ${Key}"
+  echo "Filename = ${FileName}"  
+
+
+
+  // Set Env Vars For Debs & Rpms
+
+//    env.BUILDARCH = BuildArch
+//   env.VERSION = Version
+//   env.DISTROLIST = DistroList
+//   env.VALUE = Value
+//   env.PACKAGEDIR = PackageDir
+//   env.KEY = Key
+//   env.FILENAME = FileName
+//   try {
+//     def ResponseCode = sh(script: "curl -o /dev/null --silent --head --write-out '%{http_code}' ${Target}", returnStdout: true).trim()
+//     echo "ResponseCode = ${ResponseCode}"
+//     if ( ResponseCode == '200') {
+//       echo "Target Exists - Skipping"
+//     } else {
+//       echo "Target Doesnt Exist - Upload Files"
+//       switch(Distro) {
+//            case "Debian":
+//                // Not RISC Use JF CLI
+//                if (BuildArch != "riscv64") {
+//                  jf 'rt u **/build/ospackage/temurin-*${BUILDARCH}.deb deb/pool/main/t/temurin-${VERSION}/ --target-props=${DISTROLIST}deb.component=main;deb.architecture=${BUILDARCH} --flat=true'
+//                }
+//                if (BuildArch == "riscv64") {
+//                handleRISCVUpload("Debian", "${BUILDARCH}", "${VERSION}", "${DISTROLIST}", "", "", "")
+//              }
+//                break
+//            case "Alpine":
+//                jf 'rt u **/build/ospackage/${FILENAME} apk/alpine/main/${BUILDARCH}/ --flat=true'
+//                break
+//            case "RPMS":
+//               if (BuildArch != "riscv64") {
+//                 jf 'rt u **/build/ospackage/*.${VALUE}.rpm ${PACKAGEDIR}/${KEY}/Packages/ --flat=true'
+//               }
+//               if (BuildArch == "riscv64") {
+//                 handleRISCVUpload("RPMS","" ,"", "", "${VALUE}", "${PACKAGEDIR}", "${KEY}" )
+//               }
+//               break
+//            default:
+//               echo "Default Case"
+//               if (BuildArch != "riscv64") {
+//                 jf 'rt u **/build/ospackage/*.${VALUE}.rpm ${PACKAGEDIR}/${KEY}/Packages/ --flat=true'
+//               }
+//               if (BuildArch == "riscv64") {
+//                 handleRISCVUpload("RPMS","" ,"", "", "${VALUE}", "${PACKAGEDIR}", "${KEY}" )
+//               }
+//               break
+//        }
+//     }
+//   } catch (Exception e) {
+//     error "Error While Checking URL ${Target}: ${e.message}"
+//   }
+}
+
 // Function Definitions End
 
 
@@ -755,15 +868,20 @@ stage('Build & Archive Package') {
                     // Distro Specific Uploads
                     if (distro == 'alpine-linux') {
                         echo "ALPINE UPLOAD"
+                        def UpDistro = "Alpine"
                         def PackFiles = findFiles(glob: '**/build/ospackage/temurin-*j*.apk') // List All Packages To Upload
                         def SrcFiles = findFiles(glob: '**/build/ospackage/temurin-*src*.apk') // List All Sources To Upload
                         def AllFiles = PackFiles + SrcFiles
                         for (PackFile in AllFiles) {
                                  def FileName = PackFile.name
                                  def Target = "https://adoptium.jfrog.io/artifactory/apk/alpine/main/${arch}/${FileName}"
-                                 echo "FileName = ${FileName}"
+                                 echo "Debug 1000 - Alpine Upload Debugging"
                                  echo "Target = ${Target}"
-                                 // CheckAndUpload(Target, Distro, buildArch, '', '', '', '', '' , FileName)
+                                 echo "Distro = ${UpDistro}"
+                                 echo "buildArch = ${arch}"
+                                 echo "FileName = ${FileName}"
+                                 CheckAndUpload(Target, UpDistro, buildArch, '', '', '', '', '' , FileName)
+                                 //def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
                         }
                     } else if (distro == 'linux') {
                         echo "Linux Upload"
