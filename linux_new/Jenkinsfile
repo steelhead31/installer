@@ -797,7 +797,10 @@ stage('Build & Archive Package') {
                             echo "Release = ${Release}"
                             echo "FileName = ${DebFileName}"
                             echo "DistroList = ${distro_list}"
+                            CheckAndUpload(DebTarget, DebDistro, arch, Release, distro_list, '', '', '', DebFileName)
                         }
+                                      
+
                 
                     }
                         
