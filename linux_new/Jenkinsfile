@@ -800,26 +800,9 @@ stage('Build & Archive Package') {
                             echo "Release = ${Release}"
                             echo "FileName = ${DebFileName}"
                             echo "DistroList = ${distro_list}"
-                            //CheckAndUpload(DebTarget, DebDistro, arch, Release, distro_list, '', '', '', DebFileName)
-                            // def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
-
-                            // echo "Debug - DebTarget: ${DebTarget}, DebDistro: ${DebDistro}, arch: ${arch}, DebFileName: ${DebFileName}"
                             CheckAndUpload(DebTarget, DebDistro, arch, '', distro_list, '', '', '' , DebFileName)
                         }
                     }
-                        
-                //         // 
-                //         // for (PackFile in PackFilesDeb) {
-                //         //     def DebFileName = PackFile.name
-                //         //     def Target = "https://adoptium.jfrog.io/artifactory/deb/pool/main/t/temurin-${Release}/${DebFileName}"
-                
-                //         //     //distro_list="sosig"
-                //         //     //echo "DistroList = ${distro_list}"
-                //         //     echo "FileName = ${DebFileName}"
-                //         //     CheckAndUpload(Target, DebDistro, arch, Release, '', '', '', '', '', '' )
-                //         }
-                //     } 
-                //   }
               }
               // End OF Script
           }
