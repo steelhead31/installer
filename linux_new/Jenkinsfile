@@ -905,7 +905,7 @@ stage('Build & Archive Package') {
                             echo "FileName = ${FileName}"
                             // deb_distros.each { deb_distro ->
                             // echo "Deb Dist = ${deb_distro}"
-                            CheckAndUpload(Target, DebDistro, arch, Release, distro_list, '', '', '', '' )
+                            CheckAndUpload(Target, Distro, arch, Release, distro_list, '', '', '', '' )
                             //def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
                             //}
                             
