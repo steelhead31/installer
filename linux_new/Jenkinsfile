@@ -906,30 +906,29 @@ stage('Build & Archive Package') {
                             // deb_distros.each { deb_distro ->
                             // echo "Deb Dist = ${deb_distro}"
                             CheckAndUpload(Target, Distro, arch, Release, distro_list, '', '', '', '' )
-                            //def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
+                            // def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
                             //}
-                            
                         }
-                        echo "Preparing For RHEL Upload"
-                        def PackFilesRHEL = findFiles(glob: "**/rhel/build/ospackage/t*.rpm") // List All Packages To Upload For Temurin
-                        for (PackFile in PackFilesRHEL) {
-                            def FileName = PackFile.name
-                            // def Target = "https://adoptium.jfrog.io/artifactory/${PACKAGEDIR}/${KEY}/Packages/${FileName}"
-                            echo "RHEL FileName = ${FileName}"
-                            // echo "Target = ${Target}"
-                            //CheckAndUpload(Target, Distro, BUILDARCH, VERSION, DISTROLIST, '', '', '', '' )"
-                        }
-                        echo "Preparing For SUSE Upload"
-                        def PackFilesSUSE = findFiles(glob: "**/suse/build/ospackage/t*.rpm") // List All Packages To Upload For Temurin
-                        for (PackFile in PackFilesSUSE) {
-                            def FileName = PackFile.name
-                            // def Target = "https://adoptium.jfrog.io/artifactory/${PACKAGEDIR}/${KEY}/Packages/${FileName}"
-                            echo "SUSE FileName = ${FileName}"
-                            // echo "Target = ${Target}"
-                            //CheckAndUpload(Target, Distro, BUILDARCH, VERSION, DISTROLIST, '', '', '', '' )"
-                        }
+                    //     echo "Preparing For RHEL Upload"
+                    //     def PackFilesRHEL = findFiles(glob: "**/rhel/build/ospackage/t*.rpm") // List All Packages To Upload For Temurin
+                    //     for (PackFile in PackFilesRHEL) {
+                    //         def FileName = PackFile.name
+                    //         // def Target = "https://adoptium.jfrog.io/artifactory/${PACKAGEDIR}/${KEY}/Packages/${FileName}"
+                    //         echo "RHEL FileName = ${FileName}"
+                    //         // echo "Target = ${Target}"
+                    //         //CheckAndUpload(Target, Distro, BUILDARCH, VERSION, DISTROLIST, '', '', '', '' )"
+                    //     }
+                    //     echo "Preparing For SUSE Upload"
+                    //     def PackFilesSUSE = findFiles(glob: "**/suse/build/ospackage/t*.rpm") // List All Packages To Upload For Temurin
+                    //     for (PackFile in PackFilesSUSE) {
+                    //         def FileName = PackFile.name
+                    //         // def Target = "https://adoptium.jfrog.io/artifactory/${PACKAGEDIR}/${KEY}/Packages/${FileName}"
+                    //         echo "SUSE FileName = ${FileName}"
+                    //         // echo "Target = ${Target}"
+                    //         //CheckAndUpload(Target, Distro, BUILDARCH, VERSION, DISTROLIST, '', '', '', '' )"
+                    //     }
                     } else {
-                        error "Unknown Distribution"
+                         error "Unknown Distribution"
                     }
                   }
               }
