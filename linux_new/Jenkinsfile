@@ -875,37 +875,37 @@ stage('Build & Archive Package') {
                     // Distro Specific Uploads
                     if (distro == 'alpine-linux') {
                         echo "ALPINE UPLOAD"
-                        def UpDistro = "Alpine"
+                        def AlpDistro = "Alpine"
                         def PackFiles = findFiles(glob: '**/build/ospackage/temurin-*j*.apk') // List All Packages To Upload
                         def SrcFiles = findFiles(glob: '**/build/ospackage/temurin-*src*.apk') // List All Sources To Upload
                         def AllFiles = PackFiles + SrcFiles
                         for (PackFile in AllFiles) {
-                                 def FileName = PackFile.name
-                                 def Target = "https://adoptium.jfrog.io/artifactory/apk/alpine/main/${arch}/${FileName}"
+                                 def AlpFileName = PackFile.name
+                                 def Target = "https://adoptium.jfrog.io/artifactory/apk/alpine/main/${arch}/${AlpFileName}"
                                  echo "Debug 1000 - Alpine Upload Debugging"
                                  echo "Target = ${Target}"
-                                 echo "Distro = ${UpDistro}"
+                                 echo "Distro = ${AlpDistro}"
                                  echo "buildArch = ${arch}"
-                                 echo "FileName = ${FileName}"
-                                 CheckAndUpload(Target, UpDistro, arch, '', '', '', '', '' , FileName)
+                                 echo "FileName = ${AlpFileName}"
+                                 CheckAndUpload(Target, AlpDistro, arch, '', '', '', '', '' , AlpFileName)
                         }
                     } else if (distro == 'linux') {
                         echo "Linux Upload"
                         echo "Preparing For Debian Upload"
-                        def Distro = "Debian"
+                        def DebDistro = "Debian"
                         def PackFilesDeb = findFiles(glob: "**/build/ospackage/temurin-*.deb") // List All Packages To Upload
                         for (PackFile in PackFilesDeb) {
-                            def FileName = PackFile.name
-                            def Target = "https://adoptium.jfrog.io/artifactory/deb/pool/main/t/temurin-${Release}/${FileName}"
+                            def DebFileName = PackFile.name
+                            def Target = "https://adoptium.jfrog.io/artifactory/deb/pool/main/t/temurin-${Release}/${DebFileName}"
                             echo "Debug 1000 - Debian Upload Debugging"
                             echo "Target = ${Target}"
-                            echo "Distro = ${Distro}"
+                            echo "Distro = ${DebDistro}"
                             echo "buildArch = ${arch}"
                             echo "DistroList = ${distro_list}"
-                            echo "FileName = ${FileName}"
+                            echo "FileName = ${DebFileName}"
                             // deb_distros.each { deb_distro ->
                             // echo "Deb Dist = ${deb_distro}"
-                            CheckAndUpload(Target, Distro, arch, Release, distro_list, '', '', '', '' )
+                            // CheckAndUpload(Target, DebDistro, arch, Release, distro_list, '', '', '', '' )
                             // def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
                             //}
                         }
