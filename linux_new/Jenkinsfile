@@ -153,6 +153,7 @@ def CheckAndUpload(String Target, String Distro, String BuildArch, String Versio
   echo "Target = ${Target}"
   echo "Distro = ${Distro}"
   echo "Arch = ${BuildArch}"
+  echo "Version = ${Version}"
   echo "DList = ${DistroList}"
   echo "Value = ${Value}"
   echo "PackageDir = ${PackageDir}"
@@ -800,7 +801,10 @@ stage('Build & Archive Package') {
                             echo "FileName = ${DebFileName}"
                             echo "DistroList = ${distro_list}"
                             //CheckAndUpload(DebTarget, DebDistro, arch, Release, distro_list, '', '', '', DebFileName)
-                             CheckAndUpload(DebTarget, DebDistro, arch, '', '', '', '', '' , DebFileName)
+                            // def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
+
+                            // echo "Debug - DebTarget: ${DebTarget}, DebDistro: ${DebDistro}, arch: ${arch}, DebFileName: ${DebFileName}"
+                            CheckAndUpload(DebTarget, DebDistro, arch, '', distro_list, '', '', '' , DebFileName)
                         }
                     }
                         
