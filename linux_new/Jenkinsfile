@@ -26,6 +26,12 @@ def deb_distros = [
     "bionic"   // Ubuntu/18.04 (LTS)
     ]
 
+def distro_list = ''
+deb_versions.each { deb_version ->
+        // Creates list like deb.distribution=stretch;deb.distribution=buster;
+        distro_list += "deb.distribution=${deb_version};"
+   }
+
 def rhel_distros = [
     'rpm/centos/7',
     'rpm/rocky/8',
@@ -886,7 +892,7 @@ stage('Build & Archive Package') {
                     } else if (distro == 'linux') {
                         echo "Linux Upload"
                         echo "Preparing For Debian Upload"
-                        def DebDistro = "Debian"
+                        def Distro = "Debian"
                         def PackFilesDeb = findFiles(glob: "**/build/ospackage/temurin-*.deb") // List All Packages To Upload
                         for (PackFile in PackFilesDeb) {
                             def FileName = PackFile.name
@@ -896,11 +902,11 @@ stage('Build & Archive Package') {
                             echo "Distro = ${DebDistro}"
                             echo "buildArch = ${arch}"
                             echo "FileName = ${FileName}"
-                            deb_distros.each { deb_distro ->
-                            echo "Deb Dist = ${deb_distro}"
-                            CheckAndUpload(Target, DebDistro, arch, Release, DISTROLIST, '', '', '', '' )
+                            // deb_distros.each { deb_distro ->
+                            // echo "Deb Dist = ${deb_distro}"
+                            CheckAndUpload(Target, DebDistro, arch, Release, distro_list, '', '', '', '' )
                             //def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
-                            }
+                            //}
                             
                         }
                         echo "Preparing For RHEL Upload"
