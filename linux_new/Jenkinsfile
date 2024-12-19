@@ -147,6 +147,8 @@ def getPackageBuildLabel(String arch, String distro) {
 def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
   echo "Entering Check & Upload"
   // Received From Alpine CheckAndUpload(Target, UpDistro, buildArch, '', '', '', '', '' , FileName)
+  // Received From Deb    CheckAndUpload(DebTarget, DebDistro, arch, Release, distro_list, '', '', '', DebFileName)
+
   echo "Debug 1001"
   echo "Target = ${Target}"
   echo "Distro = ${Distro}"
@@ -798,10 +800,8 @@ stage('Build & Archive Package') {
                             echo "FileName = ${DebFileName}"
                             echo "DistroList = ${distro_list}"
                             //CheckAndUpload(DebTarget, DebDistro, arch, Release, distro_list, '', '', '', DebFileName)
+                             CheckAndUpload(DebTarget, DebDistro, arch, '', '', '', '', '' , DebFileName)
                         }
-                                      
-
-                
                     }
                         
                 //         // 
