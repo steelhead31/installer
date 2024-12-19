@@ -27,7 +27,7 @@ def deb_distros = [
     ]
 
 def distro_list = ''
-deb_versions.each { deb_version ->
+deb_distros.each { deb_version ->
         // Creates list like deb.distribution=stretch;deb.distribution=buster;
         distro_list += "deb.distribution=${deb_version};"
    }
