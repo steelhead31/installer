@@ -776,7 +776,7 @@ stage('Build & Archive Package') {
                         }
                     }
                     if (distro == 'linux') {
-                    echo "Linux Upload"
+                        echo "Linux Upload"
                         echo "Preparing For Debian Upload"
                         def DebFileName = ''
                         def DebTarget = ''
@@ -786,8 +786,8 @@ stage('Build & Archive Package') {
                         }
                         def DebDistro = "Debian"
                         def PackFilesDeb = findFiles(glob: "**/build/ospackage/temurin-*.deb") // List All Packages To Upload
-                        for (PackFile in PackFilesDeb) {
-                            DebFileName = PackFile.name
+                        for (DebPackFile in PackFilesDeb) {
+                            DebFileName = DebPackFile.name
                             DebTarget = "https://adoptium.jfrog.io/artifactory/deb/pool/main/t/temurin-${Release}/${DebFileName}"
 
                             echo "Debug 1000 - Debian Upload Debugging"
@@ -797,7 +797,7 @@ stage('Build & Archive Package') {
                             echo "Release = ${Release}"
                             echo "FileName = ${DebFileName}"
                             echo "DistroList = ${distro_list}"
-                            CheckAndUpload(DebTarget, DebDistro, arch, Release, distro_list, '', '', '', DebFileName)
+                            //CheckAndUpload(DebTarget, DebDistro, arch, Release, distro_list, '', '', '', DebFileName)
                         }
                                       
 
