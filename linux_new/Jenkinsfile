@@ -792,7 +792,8 @@ stage('Build & Archive Package') {
                             echo "Distro = ${DebDistro}"
                             echo "buildArch = ${arch}"
                             echo "Release = ${Release}"
-                            echo "DistroList = ${distro_list}"
+                            //echo "DistroList = ${distro_list}"
+                            distro_list="sosig"
                             echo "FileName = ${DebFileName}"
                             CheckAndUpload(Target, DebDistro, arch, Release, distro_list, '', '', '', DebFileName )
                         }
