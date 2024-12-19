@@ -26,12 +26,6 @@ def deb_distros = [
     "bionic"   // Ubuntu/18.04 (LTS)
     ]
 
-def distro_list = ''
-deb_distros.each { deb_version ->
-        // Creates list like deb.distribution=stretch;deb.distribution=buster;
-        distro_list += "deb.distribution=${deb_version};"
-   }
-
 def rhel_distros = [
     'rpm/centos/7',
     'rpm/rocky/8',
@@ -68,6 +62,7 @@ def JDKArray = []
 def ModifiedJDKArray = []
 def DISTS_TO_BUILD = []
 def distro = ""
+def distro_list = ''
 def arch = ""
 def ReleaseVersion = ""
 def Release = ""
@@ -163,7 +158,6 @@ def CheckAndUpload(String Target, String Distro, String BuildArch, String Versio
   echo "Filename = ${FileName}"  
 
 
-
   // Set Env Vars For Debs & Rpms
 
 //    env.BUILDARCH = BuildArch
@@ -215,6 +209,7 @@ def CheckAndUpload(String Target, String Distro, String BuildArch, String Versio
 //   } catch (Exception e) {
 //     error "Error While Checking URL ${Target}: ${e.message}"
 //   }
+
 }
 
 // Function Definitions End
@@ -892,6 +887,10 @@ stage('Build & Archive Package') {
                     } else if (distro == 'linux') {
                         echo "Linux Upload"
                         echo "Preparing For Debian Upload"
+                        deb_distros.each { deb_version ->
+                        // Creates list like deb.distribution=stretch;deb.distribution=buster;
+                        distro_list += "deb.distribution=${deb_version};"
+                           }
                         def DebDistro = "Debian"
                         def PackFilesDeb = findFiles(glob: "**/build/ospackage/temurin-*.deb") // List All Packages To Upload
                         for (PackFile in PackFilesDeb) {
@@ -901,6 +900,7 @@ stage('Build & Archive Package') {
                             echo "Target = ${Target}"
                             echo "Distro = ${DebDistro}"
                             echo "buildArch = ${arch}"
+                            echo "Release = ${Release}"
                             echo "DistroList = ${distro_list}"
                             echo "FileName = ${DebFileName}"
                             // deb_distros.each { deb_distro ->
