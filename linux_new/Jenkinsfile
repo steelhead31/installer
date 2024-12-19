@@ -774,7 +774,8 @@ stage('Build & Archive Package') {
                                  echo "FileName = ${AlpFileName}"
                                  CheckAndUpload(Target, AlpDistro, arch, '', '', '', '', '' , AlpFileName)
                         }
-                    } else if (distro == 'linux') {
+                    }
+                    if (distro == 'linux') {
                         echo "Linux Upload"
                         echo "Preparing For Debian Upload"
                         deb_distros.each { deb_version ->
@@ -793,15 +794,9 @@ stage('Build & Archive Package') {
                             echo "Release = ${Release}"
                             echo "DistroList = ${distro_list}"
                             echo "FileName = ${DebFileName}"
-                            // deb_distros.each { deb_distro ->
-                            // echo "Deb Dist = ${deb_distro}"
                             CheckAndUpload(Target, DebDistro, arch, Release, distro_list, '', '', '', DebFileName )
-                            // def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
-                            //}
                         }
-                    } else {
-                         error "Unknown Distribution"
-                    }
+                    } 
                   }
               }
           }
