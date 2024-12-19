@@ -156,60 +156,6 @@ def CheckAndUpload(String Target, String Distro, String BuildArch, String Versio
   echo "PackageDir = ${PackageDir}"
   echo "Key = ${Key}"
   echo "Filename = ${FileName}"  
-
-
-  // Set Env Vars For Debs & Rpms
-
-//    env.BUILDARCH = BuildArch
-//   env.VERSION = Version
-//   env.DISTROLIST = DistroList
-//   env.VALUE = Value
-//   env.PACKAGEDIR = PackageDir
-//   env.KEY = Key
-//   env.FILENAME = FileName
-//   try {
-//     def ResponseCode = sh(script: "curl -o /dev/null --silent --head --write-out '%{http_code}' ${Target}", returnStdout: true).trim()
-//     echo "ResponseCode = ${ResponseCode}"
-//     if ( ResponseCode == '200') {
-//       echo "Target Exists - Skipping"
-//     } else {
-//       echo "Target Doesnt Exist - Upload Files"
-//       switch(Distro) {
-//            case "Debian":
-//                // Not RISC Use JF CLI
-//                if (BuildArch != "riscv64") {
-//                  jf 'rt u **/build/ospackage/temurin-*${BUILDARCH}.deb deb/pool/main/t/temurin-${VERSION}/ --target-props=${DISTROLIST}deb.component=main;deb.architecture=${BUILDARCH} --flat=true'
-//                }
-//                if (BuildArch == "riscv64") {
-//                handleRISCVUpload("Debian", "${BUILDARCH}", "${VERSION}", "${DISTROLIST}", "", "", "")
-//              }
-//                break
-//            case "Alpine":
-//                jf 'rt u **/build/ospackage/${FILENAME} apk/alpine/main/${BUILDARCH}/ --flat=true'
-//                break
-//            case "RPMS":
-//               if (BuildArch != "riscv64") {
-//                 jf 'rt u **/build/ospackage/*.${VALUE}.rpm ${PACKAGEDIR}/${KEY}/Packages/ --flat=true'
-//               }
-//               if (BuildArch == "riscv64") {
-//                 handleRISCVUpload("RPMS","" ,"", "", "${VALUE}", "${PACKAGEDIR}", "${KEY}" )
-//               }
-//               break
-//            default:
-//               echo "Default Case"
-//               if (BuildArch != "riscv64") {
-//                 jf 'rt u **/build/ospackage/*.${VALUE}.rpm ${PACKAGEDIR}/${KEY}/Packages/ --flat=true'
-//               }
-//               if (BuildArch == "riscv64") {
-//                 handleRISCVUpload("RPMS","" ,"", "", "${VALUE}", "${PACKAGEDIR}", "${KEY}" )
-//               }
-//               break
-//        }
-//     }
-//   } catch (Exception e) {
-//     error "Error While Checking URL ${Target}: ${e.message}"
-//   }
-
 }
 
 // Function Definitions End
@@ -498,29 +444,11 @@ stage('Validate Artifacts') {
                       def outputfile
                       def changelogversion
                     
-                      // Python Script Requires x arguments
-                      // template_path (str): Path to the J2 template file.
-                      // package_version (str): The JDK version for the package being built.
-                      // hardware_architecture (str): The hardware architecture for the package.
-                      // package_url (str): The URL of the GitHub binary file for this release.
-                      // package_checksum (str): The validated SHA256 checksum of the binary specified in the URL.
-                      // package_name (str): The filename of the package binary.
-                      // output_file_name (str): The name of the output file to save the rendered content.
-                      // current_date (str): The date to be used for changelogs etc.
-                      // package_release_version (str): The package release version.
-                      // upstream_version (str): The upstream release version.
-                      // changelog_version (str): The version to be used in the changelog version
-                      // upstreamarm32_version (str): The upstream version to be used for ARM32 on JDK8
+
 
                       // Reformat Any Variables For Distribution Specific Oddities
 
                       if (DistArrayElement == 'alpine') {
-                        
-                        // If Base Format Reqd = 23_p37 ( Upstream jdk-23+37 )
-                        // If Updt Format Reqd = 23.0.1_p11 ( Upstream jdk-23.0.1+11 )
-                        // If JKD8 Format Reqd = 8.432.06 ( Upstream jdk8u432b06 )
-                        // Upstream Arch For Alpine : **/alpine-linux/x64/temurin/*.tar.gz,**/alpine-linux/x64/temurin/*.zip,**/alpine-linux/x64/temurin/*.sha256.txt,**/alpine-linux/x64/temurin/*.msi,**/alpine-linux/x64/temurin/*.pkg,**/alpine-linux/x64/temurin/*.json,**/alpine-linux/x64/temurin/*.sig
-                        // Upstream Arch For Alpine ARM : **/alpine-linux/aarch64/temurin/*.tar.gz,**/alpine-linux/aarch64/temurin/*.zip,**/alpine-linux/aarch64/temurin/*.sha256.txt,**/alpine-linux/aarch64/temurin/*.msi,**/alpine-linux/aarch64/temurin/*.pkg,**/alpine-linux/aarch64/temurin/*.json,**/alpine-linux/aarch64/temurin/*.sig
                         
                         echo "Debug 04"
                         echo "Release = ${Release}"
@@ -554,19 +482,19 @@ stage('Validate Artifacts') {
                         }
                         outputfile = "APKBUILD"
 
-                        echo "Debug 05 Python Parameters For Alpine"
-                        echo "Python 1 : Template Path = : ${templatebase}"
-                        echo "Python 2 : Package Version = : ${packagever}"
-                        echo "Python 3 : Package Arch = : ${packagearch}"
-                        echo "Python 4 : Package URL = : ${PKURL}"
-                        echo "Python 5 : Package Checksum = : ${PCSUM}"
-                        echo "Python 6 : Package Name = : ${PFILE}"
-                        echo "Python 7 : Output File Name = : ${outputfile}"
-                        echo "Python 8 : Current Date = : ${currentDate}"
-                        echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
-                        echo "Python 10: JDK Upstream Version = : ${upstreamversion}"
-                        echo "Python 11 : Changelog Version = :${packagever}"
-                        echo "Python 12: ARM32 Version = ${upstreamversion}"
+                        // echo "Debug 05 Python Parameters For Alpine"
+                        // echo "Python 1 : Template Path = : ${templatebase}"
+                        // echo "Python 2 : Package Version = : ${packagever}"
+                        // echo "Python 3 : Package Arch = : ${packagearch}"
+                        // echo "Python 4 : Package URL = : ${PKURL}"
+                        // echo "Python 5 : Package Checksum = : ${PCSUM}"
+                        // echo "Python 6 : Package Name = : ${PFILE}"
+                        // echo "Python 7 : Output File Name = : ${outputfile}"
+                        // echo "Python 8 : Current Date = : ${currentDate}"
+                        // echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
+                        // echo "Python 10: JDK Upstream Version = : ${upstreamversion}"
+                        // echo "Python 11 : Changelog Version = :${packagever}"
+                        // echo "Python 12: ARM32 Version = ${upstreamversion}"
 
                         // Figure Out Template name
                         templatebase = "./linux_new/${PTYPE}/${DistArrayElement}/src/main/packaging/${PRODUCT}/${Release}/${DistArrayElement}.${PTYPE}${Release}.template.j2"
@@ -585,16 +513,6 @@ stage('Validate Artifacts') {
                       if (DistArrayElement == 'debian') {
 
                         echo "Processing Debian Files"
-                        // If Base Format Reqd = 23.0.0.0.0+37 ( Upstream jdk-23+37 )
-                        // If Updt Format Reqd = 23.0.1.0.0+11 ( Upstream jdk-23.0.1+11 )
-                        // If Rebuild Format Reqd = 23.0.1.1.0+5 ( Upstream jdk-23.0.1.1+5 )
-                        // If JDK8 8.0.432.0.0+6
-                        // Upstream Arch For x64 : **/linux/x64/temurin/*.tar.gz,**/linux/x64/temurin/*.zip,**/linux/x64/temurin/*.sha256.txt,**/linux/x64/temurin/*.msi,**/linux/x64/temurin/*.pkg,**/linux/x64/temurin/*.json,**/linux/x64/temurin/*.sig
-                        // Upstream Arch For ARM64 : **/linux/aarch64/temurin/*.tar.gz,**/linux/aarch64/temurin/*.zip,**/linux/aarch64/temurin/*.sha256.txt,**/linux/aarch64/temurin/*.msi,**/linux/aarch64/temurin/*.pkg,**/linux/aarch64/temurin/*.json,**/linux/aarch64/temurin/*.sig
-                        // Upstream Arch For s390x : **/linux/s390x/temurin/*.tar.gz,**/linux/s390x/temurin/*.zip,**/linux/s390x/temurin/*.sha256.txt,**/linux/s390x/temurin/*.msi,**/linux/s390x/temurin/*.pkg,**/linux/s390x/temurin/*.json,**/linux/s390x/temurin/*.sig
-                        // Upstream Arch For ppc64le : **/linux/ppc64le/temurin/*.tar.gz,**/linux/ppc64le/temurin/*.zip,**/linux/ppc64le/temurin/*.sha256.txt,**/linux/ppc64le/temurin/*.msi,**/linux/ppc64le/temurin/*.pkg,**/linux/ppc64le/temurin/*.json,**/linux/ppc64le/temurin/*.sig
-                        // Upstream Arch For RISCV : **/linux/riscv64/temurin/*.tar.gz,**/linux/riscv64/temurin/*.zip,**/linux/riscv64/temurin/*.sha256.txt,**/linux/riscv64/temurin/*.msi,**/linux/riscv64/temurin/*.pkg,**/linux/riscv64/temurin/*.json,**/linux/riscv64/temurin/*.sig
-                        // Upstream Arch For ARM32 : **/linux/arm/temurin/*.tar.gz,**/linux/arm/temurin/*.zip,**/linux/arm/temurin/*.sha256.txt,**/linux/arm/temurin/*.msi,**/linux/arm/temurin/*.pkg,**/linux/arm/temurin/*.json,**/linux/arm/temurin/*.sig
                         
                         // Debian Requires 3 Files To Be Generated
                         def debianFiles = ['changelog', 'control', 'rules']
@@ -638,20 +556,6 @@ stage('Validate Artifacts') {
                         if (!fileExists(templatebase)) {
                           error("Template File Not Found At : ${templatebase}")
                         }
-
-                        // echo "Debug 08"
-                        // echo "Python 1 : Template Path = : ${templatebase}"
-                        // echo "Python 2 : Package Version = : ${packagever}"
-                        // echo "Python 3 : Package Arch = : ${packagearchDeb}"
-                        // echo "Python 4 : Package URL = : ${PKURL}"
-                        // echo "Python 5 : Package Checksum = : ${PCSUM}"
-                        // echo "Python 6 : Package Name = : ${PFILE}"
-                        // echo "Python 7 : Output File Name = : ${outputfile}"
-                        // echo "Python 8 : Current Date = : ${currentDate}"
-                        // echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
-                        // echo "Python 10: Upstream Version = : ${upstreamversion}"
-                        // echo "Python 11: Changelog Version = : ${packagever}"
-                        // echo "Python 12: ARM32 Version = ${upstreamversion}"
 
                         def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearchDeb}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${packagever}\" \"${upstreamversion}\""
                         echo "Spec Command : ${speccmd}"
@@ -717,20 +621,6 @@ stage('Validate Artifacts') {
                         if (!fileExists(templatebase)) {
                           error("Template File Not Found At : ${templatebase}")
                         }
-
-                        // echo "Debug - 09a - PackageVer = ${packagever}"
-                        // echo "Python 1 : Template Path = : ${templatebase}"
-                        // echo "Python 2 : Package Version = : ${packagever}"
-                        // echo "Python 3 : Package Arch = : ${packagearchRhel}"
-                        // echo "Python 4 : Package URL = : ${PKURL}"
-                        // echo "Python 5 : Package Checksum = : ${PCSUM}"
-                        // echo "Python 6 : Package Name = : ${PFILE}"
-                        // echo "Python 7 : Output File Name = : ${outputfile}"
-                        // echo "Python 8 : Current Date = : ${currentDateRHEL}"
-                        // echo "Python 9 : Package Release Version = : ${PackageReleaseVersion}"
-                        // echo "Python 10: Upstream Version = : ${upstreamversion}"
-                        // echo "Python 11: Changelog Version = : ${changelogversion}"
-                        // echo "Python 12: Upstream ARM32 Version = : ${upstreamversionARM32}"
 
                         def speccmd = "python3 linux_new/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearchRhel}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDateRHEL}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${changelogversion}\" \"${upstreamversionARM32}\""
                         echo "Spec Command : ${speccmd}"
@@ -905,28 +795,10 @@ stage('Build & Archive Package') {
                             echo "FileName = ${DebFileName}"
                             // deb_distros.each { deb_distro ->
                             // echo "Deb Dist = ${deb_distro}"
-                            // CheckAndUpload(Target, DebDistro, arch, Release, distro_list, '', '', '', '' )
+                            CheckAndUpload(Target, DebDistro, arch, Release, distro_list, '', '', '', DebFileName )
                             // def CheckAndUpload(String Target, String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key, String FileName) {
                             //}
                         }
-                    //     echo "Preparing For RHEL Upload"
-                    //     def PackFilesRHEL = findFiles(glob: "**/rhel/build/ospackage/t*.rpm") // List All Packages To Upload For Temurin
-                    //     for (PackFile in PackFilesRHEL) {
-                    //         def FileName = PackFile.name
-                    //         // def Target = "https://adoptium.jfrog.io/artifactory/${PACKAGEDIR}/${KEY}/Packages/${FileName}"
-                    //         echo "RHEL FileName = ${FileName}"
-                    //         // echo "Target = ${Target}"
-                    //         //CheckAndUpload(Target, Distro, BUILDARCH, VERSION, DISTROLIST, '', '', '', '' )"
-                    //     }
-                    //     echo "Preparing For SUSE Upload"
-                    //     def PackFilesSUSE = findFiles(glob: "**/suse/build/ospackage/t*.rpm") // List All Packages To Upload For Temurin
-                    //     for (PackFile in PackFilesSUSE) {
-                    //         def FileName = PackFile.name
-                    //         // def Target = "https://adoptium.jfrog.io/artifactory/${PACKAGEDIR}/${KEY}/Packages/${FileName}"
-                    //         echo "SUSE FileName = ${FileName}"
-                    //         // echo "Target = ${Target}"
-                    //         //CheckAndUpload(Target, Distro, BUILDARCH, VERSION, DISTROLIST, '', '', '', '' )"
-                    //     }
                     } else {
                          error "Unknown Distribution"
                     }
