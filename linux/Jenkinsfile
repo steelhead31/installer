@@ -213,7 +213,7 @@ def CheckAndUpload(String Target, String Distro, String BuildArch, String Versio
 
 // RISC-V Upload Function
 def handleRISCVUpload(String Distro, String BuildArch, String Version, String DistroList, String Value, String PackageDir, String Key ) {
-    node("dockerBuild&&linux&&x64") {
+    node("dockerBuild&&linux&&x64&&sfbuild") {
       tool name: 'jfrog-cli', type: 'jfrog'
 
       env.DISTRO = Distro
