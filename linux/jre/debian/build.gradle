@@ -129,17 +129,28 @@ task packageJreDebian {
 					}
 				}
 
-		if ("$arch" != "armhf" && "$arch" != "riscv64"){
-				project.exec {
-					workingDir "src/main/packaging"
-					commandLine "docker", "build", "--no-cache",
-						"-t", "adoptium-packages-linux-jdk-debian",
-						"--build-arg=CONTAINER_REGISTRY=${containerRegistry}",
-						"-f", "Dockerfile",
-						getProjectDir().absolutePath + "/src/main/packaging"
-		     }
-			}
-
+				if ("$arch" == "s390x") {
+						project.exec {
+							workingDir "src/main/packaging"
+							commandLine "docker", "build", "--no-cache",
+								"--build-arg", "IMAGE=s390x/debian:bullseye",
+								"-t", "adoptium-packages-linux-jdk-debian",
+								"--build-arg=CONTAINER_REGISTRY=${containerRegistry}",
+								"-f", "Dockerfile",
+								getProjectDir().absolutePath + "/src/main/packaging"
+						}
+					}
+				if ("$arch" != "armhf" && "$arch" != "riscv64" && "$arch" != "s390x"){
+						project.exec {
+							workingDir "src/main/packaging"
+							commandLine "docker", "build", "--no-cache",
+								"-t", "adoptium-packages-linux-jdk-debian",
+								"--build-arg=CONTAINER_REGISTRY=${containerRegistry}",
+								"-f", "Dockerfile",
+								getProjectDir().absolutePath + "/src/main/packaging"
+				     }
+					}
+					
 		project.exec {
 			workingDir getRootDir()
 			commandLine "docker", "run",
