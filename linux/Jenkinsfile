@@ -12,7 +12,7 @@ s390x       s390x       s390x       only for jdk8+
 riscv64     riscv64     riscv64     only for JDK17+
 */
 
-env.NODE_LABEL = 'dockerBuild&&linux&&x64' // Default node and also used for build RedHat + Suse + Debian x64
+env.NODE_LABEL = 'dockerBuild&&linux&&x64&&sfbuild' // Default node and also used for build RedHat + Suse + Debian x64
 env.PRODUCT = 'temurin'
 
 class Types {
@@ -291,7 +291,7 @@ def jenkinsStepDeb() {
         // special handle: no label x86_64 only x64 for debian agent
         def debLabel = "${DebARCH}&&docker"
         if ("${DebARCH}" == 'x86_64') {
-            debLabel = 'x64&&dockerBuild'
+            debLabel = 'x64&&dockerBuild&&sfbuild'
         }
         // special handle: force arm32 on arm 64 dockerhost
         if ("${DebARCH}" == 'armv7l') {
