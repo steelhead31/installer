@@ -1,6 +1,6 @@
 ARG CONTAINER_REGISTRY=""
 
-FROM ${CONTAINER_REGISTRY}alpine:3.19
+FROM ${CONTAINER_REGISTRY}alpine:3.21
 ENV GOSU_VERSION 1.14
 
 RUN set -eux; \
@@ -13,6 +13,8 @@ RUN set -eux; \
 		dpkg \
 		sudo \
 		wget
+# Test
+RUN update-ca-certificates
 
 # Create unprivileged user for building, see
 # https://github.com/hexops/dockerfile#use-a-static-uid-and-gid
@@ -20,6 +22,8 @@ RUN adduser -D -h /home/builder builder \
     && addgroup builder abuild \
     && echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers \
     && echo 'permit builder as root' > /etc/doas.d/doas.conf
+
+# RUN addgroup builder abuild
 
 # Add GPG key
 USER builder

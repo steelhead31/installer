@@ -9,9 +9,18 @@ cp -R /home/builder/build/generated/packaging /home/builder/workspace
 # Set permssions
 sudo chown -R builder /home/builder/out
 
+# Debugging
+echo "Debug"
+ls -ltr /var/cache
+ls -ltr /home/builder/.abuild
+cat /home/builder/.abuild/abuild.conf
+cat /etc/group
+
 # Build package and set distributions it supports
 cd /home/builder/workspace/packaging
-abuild -r
+abuild -r -v
+
+
 
 arch=$(abuild -A)
 

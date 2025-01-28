@@ -11,7 +11,7 @@ sudo chown -R builder /home/builder/out
 
 # Build package and set distributions it supports
 cd /home/builder/workspace/packaging
-abuild -r
+abuild -r -v
 
 arch=$(abuild -A)
 
