@@ -23,7 +23,7 @@ RUN adduser -D -h /home/builder builder \
     && echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers \
     && echo 'permit builder as root' > /etc/doas.d/doas.conf
 
-# RUN addgroup builder abuild
+RUN addgroup builder abuild
 
 # Add GPG key
 USER builder
