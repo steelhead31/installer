@@ -9,6 +9,7 @@ cp -R /home/builder/build/generated/packaging /home/builder/workspace
 # Set permssions
 sudo chown -R builder /home/builder/out
 sudo chown -R builder /home/builder 
+sudo chmod -R 777 /var/cache/distfiles
 
 # Debugging
 echo "Debug"
