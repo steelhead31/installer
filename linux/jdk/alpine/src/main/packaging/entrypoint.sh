@@ -8,6 +8,7 @@ cp -R /home/builder/build/generated/packaging /home/builder/workspace
 
 # Set permssions
 sudo chown -R builder /home/builder/out
+sudo chown -R builder /home/builder 
 
 # Debugging
 echo "Debug"
@@ -15,6 +16,9 @@ ls -ltr /var/cache
 ls -ltr /home/builder/.abuild
 cat /home/builder/.abuild/abuild.conf
 cat /etc/group
+echo ""
+echo "ID"
+id
 
 # Build package and set distributions it supports
 cd /home/builder/workspace/packaging
