@@ -14,8 +14,8 @@ def ArchiveFileName = ""
 // Github Artifact Repos
 def binaryRepo = "${params.VERSION.replace('jdk', 'temurin')}-binaries/releases/tag/${params.TAG}"
 def binaryDLRepo = "${params.VERSION.replace('jdk', 'temurin')}-binaries/releases/download/${params.TAG}"
-def fullURL = "${baseURL}/${binaryRepo}"
-def dlURL = "${baseURL}/${binaryDLRepo}"
+def fullURL = "${baseURL}${binaryRepo}"
+def dlURL = "${baseURL}${binaryDLRepo}"
 
 /* Supported Distro Arrays */
 // Remember If Adding An Deb Distro to update the cacerts package //
@@ -256,7 +256,7 @@ pipeline {
         string(name: 'UPSTREAM_JOB_NUMBER', defaultValue: '', description: 'Parameter From Upstream Job Not Required Here')
         booleanParam(name: 'UPLOAD_TESTRESULTS_ONLY', defaultValue: false, description: 'Parameter From Upstream Job Not Required Here')
         string(name: 'TIMESTAMP', defaultValue: '', description: 'Parameter From Upstream Job Not Required Here')
-        string(name: 'GITHUB_TOKEN', defaultValue: '', description: 'Parameter From Upstream Job Not Required Here')
+        password(name: 'GITHUB_TOKEN', defaultValue: '', description: 'Parameter From Upstream Job Not Required Here')
         string(name: 'ARTIFACTS_TO_SKIP', defaultValue: '', description: 'Parameter From Upstream Job Not Required Here')
     }
     // Stage Definition - Start
