@@ -241,7 +241,7 @@ pipeline {
     parameters {
         string(name: 'TAG', defaultValue: 'jdk-23+37', description: 'Release Tag')
         string(name: 'VERSION', defaultValue: 'jdk23', description: 'Release Version')
-        string(name: 'ARTIFACTS_TO_COPY', defaultValue: '**/alpine-linux/aarch64/temurin/*.tar.gz,**/alpine-linux/aarch64/temurin/*.zip,**/alpine-linux/aarch64/temurin/*.sha256.txt,**/alpine-linux/aarch64/temurin/*.msi,**/alpine-linux/aarch64/temurin/*.pkg,**/alpine-linux/aarch64/temurin/*.json,**/alpine-linux/aarch64/temurin/*.sig', description: 'Artifacts String')
+        string(name: 'ARTIFACTS_TO_COPY', defaultValue: '**/linux/x64/temurin/*.tar.gz,**/linux/x64/temurin/*.zip,**/linux/x64/temurin/*.sha256.txt,**/linux/x64/temurin/*.msi,**/linux/x64/temurin/*.pkg,**/linux/x64/temurin/*.json,**/linux/x64/temurin/*.sig', description: 'Artifacts String')
         booleanParam(name: 'RELEASE', defaultValue: false, description: 'Release Flag' )
         booleanParam(name: 'DRY_RUN', defaultValue: false, description: 'Release Dry Run')
         booleanParam(name: 'ENABLEGPGSIGNING', defaultValue: true, description: 'Require GPG Signing')
