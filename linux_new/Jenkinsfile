@@ -907,10 +907,10 @@ post {
                 echo "Release : ${params.TAG}"
                 echo "FileName : ${ArchiveFileName}"
 
-                build job: 'publish_linux_pkg_src', parameters: [
-                    string(name: 'TAG', value: "${params.TAG}"),
-                    string(name: 'FILENAME', value: "${ArchiveFileName}")
-                ]
+                // build job: 'publish_linux_pkg_src', parameters: [
+                //     string(name: 'TAG', value: "${params.TAG}"),
+                //     string(name: 'FILENAME', value: "${ArchiveFileName}")
+                // ]
             } else {
                 echo 'Dry Run is enabled. Skipping downstream job trigger.'
             }
