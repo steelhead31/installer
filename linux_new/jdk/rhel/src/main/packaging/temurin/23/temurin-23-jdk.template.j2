@@ -21,6 +21,7 @@
 %global sha_src_num 1
 
 Name:        java-23-temurin
+AltName:     temurin-23-jdk
 Version:     %{spec_version}
 Release:     %{spec_release}
 Summary:     Eclipse Temurin 23 JDK
@@ -81,7 +82,7 @@ Provides: java-sdk-23-%{java_provides}
 Provides: java-sdk-%{java_provides}
 
 ## Add Provides For Backward Compatibility
-Provides:
+Provides: /usr/lib/jvm/%{AltName}
 
 # First architecture ({{ hardware_architecture }})
 Source0: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK23U-jdk_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
@@ -202,6 +203,7 @@ fi
 %defattr(-,root,root)
 %{prefix}
 /usr/lib/tmpfiles.d/%{name}.conf
+/usr/lib/jvm/
 
 %changelog
 * {{ current_date }} Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> {{ package_version }}-{{ package_release_version }}
