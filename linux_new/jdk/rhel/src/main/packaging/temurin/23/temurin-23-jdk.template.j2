@@ -81,9 +81,6 @@ Provides: java-sdk-23
 Provides: java-sdk-23-%{java_provides}
 Provides: java-sdk-%{java_provides}
 
-## Add Provides For Backward Compatibility
-Provides: /usr/lib/jvm/%{altname}
-
 # First architecture ({{ hardware_architecture }})
 Source0: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK23U-jdk_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
 Source1: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK23U-jdk_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
@@ -203,7 +200,7 @@ fi
 %defattr(-,root,root)
 %{prefix}
 /usr/lib/tmpfiles.d/%{name}.conf
-/usr/lib/jvm/
+/usr/lib/jvm/%{altname} -> /usr/lib/jvm/%{name}
 
 %changelog
 * {{ current_date }} Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> {{ package_version }}-{{ package_release_version }}
