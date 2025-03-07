@@ -398,12 +398,16 @@ pipeline {
                         filenameFinal = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${JVM}_${verversion}${verbuild ?: 'N/A'}"
                         ReleaseVersion = "${verversion}${verbuild ?: 'N/A'}"
                     } else {
-                        filenameFinal = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${JVM}_${verversion}_${verbuild ?: 'N/A'}"
+                        filenameFinal = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${JVM}_${verversion}_${verbuild ?: 'N/A'}-ea"
                         ReleaseVersion = "${verversion}_${verbuild ?: 'N/A'}"
                     }
 
                     def JDKFinal = "${filenameFinal}.${filenameSuffix}"
                     def SHAFinal = "${JDKFinal}.sha256.txt"
+
+                    echo "Debug SF01"
+                    echo "JDK Final = ${JDKFinal}"
+                    echo "SHA Final = ${SHAFinal}"
 
                     DLfilenames << JDKFinal
                     DLfilenames << SHAFinal
