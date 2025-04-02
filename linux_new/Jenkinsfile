@@ -187,7 +187,7 @@ def CheckAndUpload(String Target, String Distro, String BuildArch, String RelVer
         } else {
             echo "Target Doesnt Exist - Upload Files"
             // This Upload Works
-            jf 'rt u ${FILENAME} deb/pool/main/t/temurin-${RELNUM}/ --target-props=${DISTROLIST}deb.component=main;deb.architecture=${BUILDARCH} --flat=true'
+            // jf 'rt u ${FILENAME} deb/pool/main/t/temurin-${RELNUM}/ --target-props=${DISTROLIST}deb.component=main;deb.architecture=${BUILDARCH} --flat=true'
             break
         }
         case "Alpine":
@@ -199,7 +199,7 @@ def CheckAndUpload(String Target, String Distro, String BuildArch, String RelVer
             break
         } else {
             // This Upload Works
-            jf 'rt u **/build/ospackage/${FILENAME} apk/alpine/main/${BUILDARCH}/ --flat=true'
+            // jf 'rt u **/build/ospackage/${FILENAME} apk/alpine/main/${BUILDARCH}/ --flat=true'
             break
         }
         case "RPMS":
@@ -210,7 +210,7 @@ def CheckAndUpload(String Target, String Distro, String BuildArch, String RelVer
             echo "Target Exists - Skipping"
             break
         } else {
-            jf 'rt u ${FILENAME} ${PACKAGEDIR}/ --flat=true'
+            // jf 'rt u ${FILENAME} ${PACKAGEDIR}/ --flat=true'
             break
         }
         default:
@@ -241,9 +241,9 @@ pipeline {
     }
 
     parameters {
-        string(name: 'TAG', defaultValue: 'jdk-23+37', description: 'Release Tag')
-        string(name: 'VERSION', defaultValue: 'jdk23', description: 'Release Version')
-        string(name: 'ARTIFACTS_TO_COPY', defaultValue: '**/alpine-linux/aarch64/temurin/*.tar.gz,**/alpine-linux/aarch64/temurin/*.zip,**/alpine-linux/aarch64/temurin/*.sha256.txt,**/alpine-linux/aarch64/temurin/*.msi,**/alpine-linux/aarch64/temurin/*.pkg,**/alpine-linux/aarch64/temurin/*.json,**/alpine-linux/aarch64/temurin/*.sig', description: 'Artifacts String')
+        string(name: 'TAG', defaultValue: 'jdk-24+36', description: 'Release Tag')
+        string(name: 'VERSION', defaultValue: 'jdk24', description: 'Release Version')
+        string(name: 'ARTIFACTS_TO_COPY', defaultValue: '**/linux/x64/temurin/*.tar.gz,**/linux/x64/temurin/*.zip,**/linux/x64/temurin/*.sha256.txt,**/linux/x64/temurin/*.msi,**/linux/x64/temurin/*.pkg,**/linux/x64/temurin/*.json,**/linux/x64/temurin/*.sig', description: 'Artifacts String')
         booleanParam(name: 'RELEASE', defaultValue: false, description: 'Release Flag' )
         booleanParam(name: 'DRY_RUN', defaultValue: false, description: 'Release Dry Run')
         booleanParam(name: 'ENABLEGPGSIGNING', defaultValue: true, description: 'Require GPG Signing')
@@ -909,10 +909,10 @@ post {
                 echo "Release : ${params.TAG}"
                 echo "FileName : ${ArchiveFileName}"
 
-                build job: 'publish_linux_pkg_src', parameters: [
-                    string(name: 'TAG', value: "${params.TAG}"),
-                    string(name: 'FILENAME', value: "${ArchiveFileName}")
-                ]
+                // build job: 'publish_linux_pkg_src', parameters: [
+                //     string(name: 'TAG', value: "${params.TAG}"),
+                //     string(name: 'FILENAME', value: "${ArchiveFileName}")
+                // ]
             } else {
                 echo 'Dry Run is enabled. Skipping downstream job trigger.'
             }
