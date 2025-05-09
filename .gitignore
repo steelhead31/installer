@@ -4,6 +4,7 @@ linux_x64/
 aix/
 linux_s390x/
 linux_ppc64le/
+linux_new.backup/
 
 # Ignore build outputs, temporary directories
 build
