@@ -5,6 +5,7 @@ aix/
 linux_s390x/
 linux_ppc64le/
 linux_new.backup/
+vagrant/
 
 # Ignore build outputs, temporary directories
 build

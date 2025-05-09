@@ -20,6 +20,7 @@
 %global vers_arch {{ hardware_architecture }}
 %global src_num 0
 %global sha_src_num 1
+%global altname java-8-temurin-jdk
 
 Name:        temurin-8-jdk
 Version:     %{spec_version}
@@ -33,7 +34,7 @@ URL:         https://projects.eclipse.org/projects/adoptium
 Packager:    Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>
 
 AutoReqProv: no
-Prefix: /usr/lib/jvm/%{name}
+Prefix: /usr/lib/jvm/%{altname}
 
 ExclusiveArch: {{ hardware_architecture }}
 
@@ -92,6 +93,12 @@ Provides: jre-headless
 Provides: jre-%{java_provides}
 Provides: jre-%{java_provides}-headless
 
+# Add Virtual Provides For Altname
+Provides: %{altname}
+Provides: temurin-8-jdk = %{version}-%{release}
+Obsoletes: temurin-8-jdk < %{version}-%{release}
+Conflicts: temurin-8-jdk < %{version}-%{release}
+
 # First architecture ({{ hardware_architecture }})
 Source0: %{source_url_base}/jdk%{upstream_version}/OpenJDK8U-jdk_%{vers_arch}_linux_hotspot_%{upstream_version_no_dash}.tar.gz
 Source1: %{source_url_base}/jdk%{upstream_version}/OpenJDK8U-jdk_%{vers_arch}_linux_hotspot_%{upstream_version_no_dash}.tar.gz.sha256.txt
@@ -127,9 +134,19 @@ popd
 # noop
 
 %install
+if [ -L "%{buildroot}/usr/lib/jvm/%{name}" ]; then
+  echo "Removing Existing Link"
+  rm -f "%{buildroot}/usr/lib/jvm/%{name}"
+fi
+if [ -d "%{buildroot}/usr/lib/jvm/%{name}" ]; then
+  echo "Removing Existing Link"
+  rm -f %{buildroot}/usr/lib/jvm/%{name}
+fi
+
 mkdir -p %{buildroot}%{prefix}
 cd %{buildroot}%{prefix}
 tar --strip-components=1 -C "%{buildroot}%{prefix}" -xf %{expand:%{SOURCE%{src_num}}}
+ln -s %{prefix} %{buildroot}/usr/lib/jvm/%{name}
 
 # Strip bundled Freetype and use OS package instead.
 rm -f "%{buildroot}%{prefix}/lib/libfreetype.so"
@@ -247,6 +264,7 @@ fi
 %defattr(-,root,root)
 %{prefix}
 /usr/lib/tmpfiles.d/%{name}.conf
+/usr/lib/jvm/%{name}
 
 %changelog
 * {{ current_date }} Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org> {{ package_version }}-{{ package_release_version }}
