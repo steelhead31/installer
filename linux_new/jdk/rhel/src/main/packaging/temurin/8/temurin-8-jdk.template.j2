@@ -20,6 +20,7 @@
 %global vers_arch {{ hardware_architecture }}
 %global src_num 0
 %global sha_src_num 1
+%global altname java-8-temurin-jdk
 
 Name:        temurin-8-jdk
 Version:     %{spec_version}
@@ -33,7 +34,7 @@ URL:         https://projects.eclipse.org/projects/adoptium
 Packager:    Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>
 
 AutoReqProv: no
-Prefix: /usr/lib/jvm/%{name}
+Prefix: /usr/lib/jvm/%{altname}
 
 ExclusiveArch: {{ hardware_architecture }}
 
@@ -91,6 +92,9 @@ Provides: jre-1.8.0-%{java_provides}-headless
 Provides: jre-headless
 Provides: jre-%{java_provides}
 Provides: jre-%{java_provides}-headless
+
+# Add Virtual Provides For Altname
+Provides: %{altname}
 
 # First architecture ({{ hardware_architecture }})
 Source0: %{source_url_base}/jdk%{upstream_version}/OpenJDK8U-jdk_%{vers_arch}_linux_hotspot_%{upstream_version_no_dash}.tar.gz
@@ -236,6 +240,12 @@ if [ $1 -ge 1 ] ; then
                         --slave %{_mandir}/man1/wsimport.1 wsimport.1 %{prefix}/man/man1/wsimport.1 \
                         --slave %{_mandir}/man1/xjc.1 xjc.1 %{prefix}/man/man1/xjc.1
 fi
+
+if [ -d /usr/lib/jvm/%{name} ] && [ ! -L /usr/lib/jvm/%{name} ]; then
+    rm -rf /usr/lib/jvm/%{name}
+fi
+
+ln -sfn /usr/lib/jvm/%{altname} /usr/lib/jvm/%{name}
 
 %preun
 if [ $1 -eq 0 ]; then

@@ -18,6 +18,7 @@
 %global vers_arch {{ hardware_architecture }}
 %global src_num 0
 %global sha_src_num 1
+%global altname java-8-temurin-jre
 
 Name:        temurin-8-jre
 Version:     %{spec_version}
@@ -31,7 +32,7 @@ URL:         https://projects.eclipse.org/projects/adoptium
 Packager:    Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>
 
 AutoReqProv: no
-Prefix: /usr/lib/jvm/%{name}
+Prefix: /usr/lib/jvm/%{altname}
 
 ExclusiveArch: {{ hardware_architecture }}
 
@@ -149,6 +150,12 @@ if [ $1 -ge 1 ] ; then
                         --slave %{_mandir}/man1/tnameserv.1 tnameserv.1 %{prefix}/man/man1/tnameserv.1 \
                         --slave %{_mandir}/man1/unpack200.1 unpack200.1 %{prefix}/man/man1/unpack200.1
 fi
+
+if [ -d /usr/lib/jvm/%{name} ] && [ ! -L /usr/lib/jvm/%{name} ]; then
+    rm -rf /usr/lib/jvm/%{name}
+fi
+
+ln -sfn /usr/lib/jvm/%{altname} /usr/lib/jvm/%{name}
 
 %preun
 if [ $1 -eq 0 ]; then
