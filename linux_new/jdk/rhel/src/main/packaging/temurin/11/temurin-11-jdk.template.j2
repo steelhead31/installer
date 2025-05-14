@@ -19,6 +19,7 @@
 %global vers_arch {{ hardware_architecture }}
 %global src_num 0
 %global sha_src_num 1
+%global altname java-11-temurin-jdk
 
 Name:        temurin-11-jdk
 Version:     %{spec_version}
@@ -32,7 +33,7 @@ URL:         https://projects.eclipse.org/projects/adoptium
 Packager:    Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>
 
 AutoReqProv: no
-Prefix: /usr/lib/jvm/%{name}
+Prefix: /usr/lib/jvm/%{altname}
 
 ExclusiveArch: {{ hardware_architecture }}
 
@@ -87,6 +88,9 @@ Provides: jre-11-%{java_provides}-headless
 Provides: jre-headless
 Provides: jre-%{java_provides}
 Provides: jre-%{java_provides}-headless
+
+# Add Virtual Provides For Altname
+Provides: %{altname}
 
 # First architecture ({{ hardware_architecture }})
 Source0: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK11U-jdk_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
@@ -200,6 +204,12 @@ if [ $1 -ge 1 ] ; then
                         --slave  %{_mandir}/man1/rmic.1 rmic.1 %{prefix}/man/man1/rmic.1 \
                         --slave  %{_mandir}/man1/serialver.1 serialver.1 %{prefix}/man/man1/serialver.1
 fi
+
+if [ -d /usr/lib/jvm/%{name} ] && [ ! -L /usr/lib/jvm/%{name} ]; then
+    rm -rf /usr/lib/jvm/%{name}
+fi
+
+ln -sfn /usr/lib/jvm/%{altname} /usr/lib/jvm/%{name}
 
 %preun
 if [ $1 -eq 0 ]; then
