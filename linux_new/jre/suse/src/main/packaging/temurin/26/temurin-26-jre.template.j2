@@ -1,4 +1,4 @@
-%global upstream_version {{ upstream_version }}
+%global upstream_version 26+35
 # Only [A-Za-z0-9.] allowed in version:
 # https://docs.fedoraproject.org/en-US/packaging-guidelines/Versioning/#_upstream_uses_invalid_characters_in_the_version
 # also not very intuitive:
@@ -82,8 +82,8 @@ Provides: libverify.so%{?_isa}
 Provides: libjsig.so%{?_isa}
 
 # First architecture ({{ hardware_architecture }})
-Source0: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK26U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz
-Source1: %{source_url_base}/jdk-%{upstream_version_url}/OpenJDK26U-jre_%{vers_arch}_linux_hotspot_%{upstream_version_no_plus}.tar.gz.sha256.txt
+Source0: https://github.com/adoptium/temurin26-binaries/releases/download/jdk-26%2B35-ea-beta/OpenJDK26U-jre_x64_linux_hotspot_26_35-ea.tar.gz
+Source1: https://github.com/adoptium/temurin26-binaries/releases/download/jdk-26%2B35-ea-beta/OpenJDK26U-jre_x64_linux_hotspot_26_35-ea.tar.gz.sha256.txt
 
 # Avoid build failures on some distros due to missing build-id in binaries.
 %global debug_package %{nil}

@@ -426,7 +426,7 @@ pipeline {
                         ReleaseVersion = "${verversion}_${verbuild ?: 'N/A'}"
                     }
 
-                    def JDKFinal = "${filenameFinal}.${filenameSuffix}"
+                    def JDKFinal = "${filenameFinal}-ea.${filenameSuffix}"
                     def SHAFinal = "${JDKFinal}.sha256.txt"
 
                     DLfilenames << JDKFinal
