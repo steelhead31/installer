@@ -1,0 +1,9 @@
+import org.adoptium.LinuxPackaging
+
+LinuxPackaging.configure(project, [
+	imageType : 'jdk',
+	distro    : 'Alpine',
+	dockerTag : 'alpine',
+	gpgBuild  : true,
+	gpgCheck  : true,
+])

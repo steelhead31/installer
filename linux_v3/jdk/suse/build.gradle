@@ -1,0 +1,13 @@
+import org.adoptium.LinuxPackaging
+
+LinuxPackaging.configure(project, [
+	imageType    : 'jdk',
+	distro       : 'Suse',
+	dockerTag    : 'suse',
+	gpgBuild     : true,
+	localBuild   : true,
+	extraRunEnvs : ['buildVersion', 'buildLocalFlag'],
+	microsoftPkg : true,
+	gpgCheck     : true,
+	archCheck    : true,
+])

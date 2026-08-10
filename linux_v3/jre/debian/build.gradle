@@ -1,0 +1,16 @@
+import org.adoptium.LinuxPackaging
+
+LinuxPackaging.configure(project, [
+	imageType    : 'jre',
+	distro       : 'Debian',
+	dockerTag    : 'debian',
+	localBuild   : true,
+	archImages   : [
+		armhf   : 'arm32v7/debian:bookworm',
+		riscv64 : 'riscv64/ubuntu:jammy',
+		ppc64el : 'ppc64le/debian:bookworm',
+		s390x   : 's390x/debian:bookworm',
+	],
+	extraRunEnvs : ['buildLocalFlag'],
+	microsoftPkg : true,
+])

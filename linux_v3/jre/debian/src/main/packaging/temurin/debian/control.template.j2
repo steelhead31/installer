@@ -1,0 +1,75 @@
+{% set release_num = package_version.split('.')[0] | int %}Source: temurin-{{ release_num }}-jre
+Section: java
+Priority: optional
+Maintainer: Eclipse Adoptium Package Maintainers <temurin-dev@eclipse.org>
+Build-Depends: debhelper (>= 11), lsb-release
+
+Package: temurin-{{ release_num }}-jre
+Architecture: {{ hardware_architecture }}
+Depends: adoptium-ca-certificates,
+         java-common,
+         libasound2,
+         libc6,
+         libfontconfig1,
+         libfreetype6,
+         libx11-6,
+         libxext6,
+         libxi6,
+         libxrender1,
+         libxtst6,
+         zlib1g
+Recommends: fonts-dejavu-core,
+            fonts-dejavu-extra
+Provides: java-runtime (= {{ release_num }}),
+          java-runtime-headless (= {{ release_num }}),
+          java10-runtime,
+          java11-runtime,
+{% if release_num >= 17 %}          java12-runtime,
+          java13-runtime,
+          java14-runtime,
+          java15-runtime,
+          java16-runtime,
+          java17-runtime,
+{% endif %}{% if release_num >= 21 %}          java18-runtime,
+          java19-runtime,
+          java2-runtime,
+          java20-runtime,
+          java21-runtime,
+{% else %}          java2-runtime,
+{% endif %}{% if release_num >= 22 %}          java22-runtime,
+{% endif %}{% if release_num >= 23 %}          java23-runtime,
+{% endif %}{% if release_num >= 24 %}          java24-runtime,
+{% endif %}{% if release_num >= 25 %}          java25-runtime,
+{% endif %}{% if release_num >= 26 %}          java26-runtime,
+{% endif %}          java5-runtime,
+          java6-runtime,
+          java7-runtime,
+          java8-runtime,
+          java9-runtime,
+          java10-runtime-headless,
+          java11-runtime-headless,
+{% if release_num >= 17 %}          java12-runtime-headless,
+          java13-runtime-headless,
+          java14-runtime-headless,
+          java15-runtime-headless,
+          java16-runtime-headless,
+          java17-runtime-headless,
+{% endif %}{% if release_num >= 21 %}          java18-runtime-headless,
+          java19-runtime-headless,
+          java2-runtime-headless,
+          java20-runtime-headless,
+          java21-runtime-headless,
+{% else %}          java2-runtime-headless,
+{% endif %}{% if release_num >= 22 %}          java22-runtime-headless,
+{% endif %}{% if release_num >= 23 %}          java23-runtime-headless,
+{% endif %}{% if release_num >= 24 %}          java24-runtime-headless,
+{% endif %}{% if release_num >= 25 %}          java25-runtime-headless,
+{% endif %}{% if release_num >= 26 %}          java26-runtime-headless,
+{% endif %}          java5-runtime-headless,
+          java6-runtime-headless,
+          java7-runtime-headless,
+          java8-runtime-headless,
+          java9-runtime-headless
+Description: Eclipse Temurin {{ release_num }} JRE
+ Eclipse Temurin JRE is an OpenJDK-based runtime environment to execute
+ Java applications and services.

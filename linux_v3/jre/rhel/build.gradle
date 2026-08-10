@@ -1,0 +1,13 @@
+import org.adoptium.LinuxPackaging
+
+LinuxPackaging.configure(project, [
+	imageType    : 'jre',
+	distro       : 'rhel',
+	dockerTag    : 'rhel',
+	gpgBuild     : true,
+	localBuild   : true,
+	extraRunEnvs : ['buildVersion', 'buildLocalFlag'],
+	microsoftPkg : true,
+	gpgCheck     : true,
+	archCheck    : true,
+])

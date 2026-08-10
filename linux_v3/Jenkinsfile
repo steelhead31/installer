@@ -1,0 +1,930 @@
+/* Used By Jenkins Job create_installer_linux_v3 */
+
+/* Constant Declarations */
+
+def NODE_LABEL = 'build&&linux&&x64&&dockerBuild&&dynamicAzure' // Default node
+def PRODUCT = 'temurin'
+def JVM = 'hotspot'
+def shouldSkipPipeline = false
+
+// Artifactory Global Variables
+def baseURL = "https://github.com/adoptium/"
+def ArchiveFileName = ""
+
+// Github Artifact Repos
+def binaryRepo = "${params.VERSION.replace('jdk', 'temurin')}-binaries/releases/tag/${params.TAG}"
+def binaryDLRepo = "${params.VERSION.replace('jdk', 'temurin')}-binaries/releases/download/${params.TAG}"
+def fullURL = "${baseURL}${binaryRepo}"
+def dlURL = "${baseURL}${binaryDLRepo}"
+
+/* Supported Distro Arrays */
+// Remember If Adding An Deb Distro to update the cacerts package //
+def deb_distros = [
+"trixie", // Debian/13
+"bookworm", // Debian/12
+"bullseye", // Debian/11
+"buster",   // Debian/10
+"resolute", // Ubuntu/26.04 (LTS)
+"noble",    // Ubuntu/24.04 (LTS)
+"jammy",    // Ubuntu/22.04 (LTS)
+"focal",    // Ubuntu/20.04 (LTS)
+"bionic"   // Ubuntu/18.04 (LTS)
+]
+
+def rhel_distros = [
+    'rpm/centos/7', // Build Platform uses CentOS 7 so retain this (2025-03)
+    'rpm/centos/9',
+    'rpm/centos/10',
+    'rpm/rocky/8',
+    'rpm/rhel/7',
+    'rpm/rhel/8',
+    'rpm/rhel/9',
+    'rpm/rhel/10',
+    'rpm/fedora/35',
+    'rpm/fedora/36',
+    'rpm/fedora/37',
+    'rpm/fedora/38',
+    'rpm/fedora/39',
+    'rpm/fedora/40',
+    'rpm/fedora/41',
+    'rpm/fedora/42',
+    'rpm/fedora/43',
+    'rpm/fedora/44',
+    'rpm/fedora/rawhide',
+    'rpm/oraclelinux/7',
+    'rpm/oraclelinux/8',
+    'rpm/amazonlinux/2'
+    ]
+
+def suse_distros = [
+    'rpm/opensuse/15.3',
+    'rpm/opensuse/15.4',
+    'rpm/opensuse/15.5',
+    'rpm/sles/12',
+    'rpm/sles/15'
+    ]
+/* End Of Distro Definitions*/
+
+// Global Variables
+def DLfilenames = []
+def JDKArray = []
+def ModifiedJDKArray = []
+def DISTS_TO_BUILD = []
+def distro = ""
+def distro_list = ''
+def arch = ""
+def ReleaseVersion = ""
+def Release = ""
+def Version = ""
+def Build = ""
+def packagearch = ""
+def AlpArch = ""
+def packagearchDeb = ""
+def packagearchRhel = ""
+def PackageReleaseVersion = "0"
+def upstreamversion = ""
+def upstreamversionARM32 = ""
+def RHELkey = ""
+def SUSEkey = ""
+def TemurinVersion = "${params.TEMURIN_VERSION_INCREMENT}"
+
+/* Have Some Default Node Labels */
+/* Specified Here To Simplify Updates Later */
+
+def PKGBUILDLABELAPK = 'linux&&apkbuild&&build&&x64&&dockerBuild'
+def PKGBUILDLABELDEB = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+def PKGBUILDLABELRHEL = 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+
+// Function Definitions Begin
+
+// Helper function to download and validate files
+def downloadArtifact(url) {
+    echo "Downloading: ${url}"
+    def result = sh(script: "curl -sSL -O ${url}", returnStatus: true)
+    if (result != 0) {
+        error("Failed to download ${url}. File not found or an error occurred. Download result := ${result}")
+    }
+    echo "Downloaded: ${url}"
+}
+
+// Helper function to validate checksum
+def validateChecksum(file, checksumFile) {
+    def expectedChecksum = sh(script: "awk '{print \$1}' ${checksumFile}", returnStdout: true).trim()
+    def calculatedChecksum = sh(script: "sha256sum ${file} | awk '{print \$1}'", returnStdout: true).trim()
+    if (expectedChecksum != calculatedChecksum) {
+        error("Checksum mismatch for ${file}. Expected: ${expectedChecksum}, but found: ${calculatedChecksum}.")
+    }
+    echo "Checksum validation successful for ${file}."
+    return calculatedChecksum
+}
+
+// Helper function to extract upstream version from tar file
+def extractUpstreamVersionFromTar(file) {
+    // def version = sh(script: "tar xvfz \"${file}\" | head -n 1 | cut -d/ -f1", returnStdout: true).trim()
+    def version = sh(script: "tar tvfz \"${file}\" | head -n 1 | awk '{print \$NF}' | cut -d/ -f1", returnStdout: true).trim()
+    sh "rm -rf \"${version}\""
+    echo "Extracted upstream version: ${version}"
+    return version
+}
+
+// Helper function to cleanup files
+def cleanupFiles(files) {
+    files.each { file ->
+    sh "rm -rf ${file}"
+}
+}
+
+// Helper function to Set Node Labels
+def getPackageBuildLabel(String arch, String distro) {
+    switch (distro) {
+        case 'APK':
+            if (arch == 'x64') {
+                return 'build&&linux&&x64&&dockerBuild&&apkbuild'
+            } else if (arch == 'aarch64') {
+                return 'build&&docker&&linux&&aarch64&&apkbuild'
+            } else {
+                error("Unsupported architecture '${arch}' for distro 'APK'")
+            }
+        case 'DEB':
+            return (arch == 'x64') ? 'build&&linux&&x64&&dockerBuild&&dynamicAzure' :
+                   (arch == 'arm') ? 'docker&&linux&&aarch64' :
+                   (arch == 'aarch64') ? 'docker&&linux&&aarch64' :
+                   (arch == 'ppc64le') ? 'build&&dockerBuild&&ppc64le' :
+                   (arch == 's390x') ? 'docker&&s390x&&dockerBuild' :
+                   (arch == 'riscv64') ? 'dockerBuild&&linux&&riscv64&&dockerInstaller' :
+                   error("Unsupported architecture '${arch}' for distro 'DEB'")
+        case 'RHEL':
+            return 'build&&linux&&x64&&dockerBuild&&dynamicAzure'
+        default:
+            error("Unsupported distro: ${distro}")
+    }
+}
+
+// Helper function to check and upload files
+def CheckAndUpload(String Target, String Distro, String BuildArch, String RelVersion, String DistroList, String Value, String PackageDir, String Key, String FileName) {
+    echo "Entering : CheckAndUpload()"
+    // Define A Context Appropriate Release Number
+    def RelNumber = params.VERSION.replaceAll(/[^\d]/, '')
+
+    env.TARGET = Target
+    env.DISTRO = Distro
+    env.BUILDARCH = BuildArch
+    env.VERSION = RelVersion
+    env.RELNUM = RelNumber
+    env.DISTROLIST = DistroList
+    env.VALUE = Value
+    env.PACKAGEDIR = PackageDir
+    env.KEY = Key
+    env.FILENAME = FileName
+    def artBaseURL = "https://adoptium.jfrog.io/artifactory/"
+
+    try {
+        switch(Distro) { // Distro Values ( Alpine / RPMS / Debian )
+        case "Debian":
+        echo "Uploading Debian Target : ${Target} For Filename {$Filename}"
+        def ResponseCode = sh(script: "curl -o /dev/null --silent --head --write-out '%{http_code}' ${artBaseURL}${Target}/${Key}", returnStdout: true).trim()
+        echo "File Existence Check Result = = ${ResponseCode}"
+        if ( ResponseCode == '200') {
+            echo "Target Exists - Skipping"
+            break
+        } else {
+            echo "Target Doesnt Exist - Upload Files"
+            // This Upload Works
+            jf 'rt u ${FILENAME} deb/pool/main/t/temurin-${RELNUM}/ --target-props=${DISTROLIST}deb.component=main;deb.architecture=${BUILDARCH} --flat=true'
+            break
+        }
+        case "Alpine":
+        echo "Uploading Alpine Target : ${Target} For Filename {$Filename}"
+        def ResponseCode = sh(script: "curl -o /dev/null --silent --head --write-out '%{http_code}' ${artBaseURL}${Target}/${FileName}", returnStdout: true).trim()
+        echo "File Existence Check Result = = ${ResponseCode}"
+        if ( ResponseCode == '200') {
+            echo "Target Exists - Skipping"
+            break
+        } else {
+            // This Upload Works
+            jf 'rt u **/build/ospackage/${FILENAME} apk/alpine/main/${BUILDARCH}/ --flat=true'
+            break
+        }
+        case "RPMS":
+        echo "Uploading RPM Target : ${Target} For Filename {$Filename}"
+        def ResponseCode = sh(script: "curl -o /dev/null --silent --head --write-out '%{http_code}' ${artBaseURL}${Target}/${DistroList}/${Value}", returnStdout: true).trim()
+        echo "File Existence Check Result = = ${ResponseCode}"
+        if ( ResponseCode == '200') {
+            echo "Target Exists - Skipping"
+            break
+        } else {
+            jf 'rt u ${FILENAME} ${PACKAGEDIR}/ --flat=true'
+            break
+        }
+        default:
+        echo "Default Case"
+        echo "I've reached an unsupported Distro This Shouldnt Occur - Have Some Debugging"
+        echo "Target = ${Target}/${FileName}"
+        echo "Distro = ${Distro}"
+        echo "Arch = ${BuildArch}"
+        echo "Version = ${Version}"
+        echo "DistroList = ${DistroList}"
+        echo "Value = ${Value}"
+        echo "PackageDir = ${PackageDir}"
+        echo "Key = ${Key}"
+        echo "Filename = ${FileName}"
+        break
+    }
+  } catch (Exception e) {
+    error "Error While Checking URL ${Target}: ${e.message}"
+  }
+}
+// Helper function to parse version components from the version string
+def parseVersionComponents(String pvers, boolean isJDK8) {
+    if (isJDK8) {
+        def versparser = (pvers =~ /(\d+)(u\d+)(b\d+)/)
+        if (versparser.matches()) {
+            return [versparser[0][1], versparser[0][2], versparser[0][3]]
+        }
+        error("The version string format does not match the expected pattern (JDK8): ${pvers}")
+    } else {
+        def versparser = (pvers =~ /^(\d+)(?:\.(.*))?_(.+)$/)
+        if (versparser.matches()) {
+            def release = versparser[0][1].toInteger()
+            def version = versparser[0][2] ? versparser[0][2] : "null"
+            def build   = versparser[0][3]
+            return [release, version, build]
+        }
+        error("Version string format is invalid: ${pvers}")
+    }
+}
+
+// Helper function to build the distro-specific packagever and changelogversion strings.
+// Returns a 2-element list: [packagever, changelogversion].
+// changelogversion is "" for alpine and debian.
+def buildPackageVer(release, version, build, String pvers, String distType, String temurinIncrement) {
+    def packagever
+    def changelogversion = ""
+    switch (distType) {
+        case 'alpine':
+            if (release == "8") {
+                // JDK8 Alpine: re-parse into dotted form
+                def versparser = (pvers =~ /(\d+)(u)(\d+)(b)(\d+)/)
+                if (versparser.matches()) {
+                    packagever = "${versparser[0][1]}.${versparser[0][3]}.${versparser[0][5]}"
+                } else {
+                    error("The version string format does not match the expected pattern (JDK8 Alpine): ${pvers}")
+                }
+            } else if (version == "null") {
+                packagever = "${release}_p${build}"
+            } else {
+                packagever = "${release}.${version}_p${build}"
+            }
+            break
+        case 'debian':
+            if (release == "8") {
+                def versparser = (pvers =~ /(\d+)u(\d+)b(\d+)/)
+                def minor = versparser[0][2]
+                def bld   = versparser[0][3].replaceAll(/^0+/, '')
+                packagever = "${release}.0.${minor}.0.${temurinIncrement}+${bld}"
+            } else if (version == "null") {
+                packagever = "${release}.0.0.0.${temurinIncrement}+${build}"
+            } else {
+                def debverparts = version.tokenize('.')
+                def adjVersion  = (debverparts.size() == 2) ? "${debverparts[0]}.${debverparts[1]}.${temurinIncrement}" : version
+                packagever = "${release}.${adjVersion}.${temurinIncrement}+${build}"
+            }
+            break
+        case 'rhel':
+            if (release == "8") {
+                def versparser = (pvers =~ /(\d+)u(\d+)b(\d+)/)
+                def minor = versparser[0][2]
+                def bld   = versparser[0][3].replaceAll(/^0+/, '')
+                def formattedBuild = bld.toString().padLeft(2, '0')
+                packagever     = "${release}.0.${minor}.0.${temurinIncrement}.${bld}"
+                changelogversion = "${release}.0.${minor}-b${formattedBuild}"
+            } else if (version == "null") {
+                packagever     = "${release}.0.0.0.${temurinIncrement}.${build}"
+                changelogversion = "${release}.0.${temurinIncrement}+${build}"
+            } else {
+                def verparts = version.tokenize('.')
+                def adjVersion = (verparts.size() == 2) ? "${verparts[0]}.${verparts[1]}.${temurinIncrement}" : version
+                packagever     = "${release}.${adjVersion}.${temurinIncrement}.${build}"
+                changelogversion = "${release}.${adjVersion}.${temurinIncrement}+${build}"
+            }
+            break
+        default:
+            error("Unknown distType in buildPackageVer: ${distType}")
+    }
+    return [packagever, changelogversion]
+}
+
+// Function Definitions End
+
+/* Pipeline Declaration */
+pipeline {
+    agent none  // No Default Agent
+    options {
+        timeout(time: 2, unit: 'HOURS')
+    }
+
+    parameters {
+        string(name: 'TAG', defaultValue: 'jdk-23+37', description: 'Release Tag')
+        string(name: 'VERSION', defaultValue: 'jdk23', description: 'Release Version')
+        string(name: 'ARTIFACTS_TO_COPY', defaultValue: '**/alpine-linux/aarch64/temurin/*.tar.gz,**/alpine-linux/aarch64/temurin/*.zip,**/alpine-linux/aarch64/temurin/*.sha256.txt,**/alpine-linux/aarch64/temurin/*.msi,**/alpine-linux/aarch64/temurin/*.pkg,**/alpine-linux/aarch64/temurin/*.json,**/alpine-linux/aarch64/temurin/*.sig', description: 'Artifacts String')
+        booleanParam(name: 'RELEASE', defaultValue: false, description: 'Release Flag' )
+        booleanParam(name: 'DRY_RUN', defaultValue: false, description: 'Release Dry Run')
+        booleanParam(name: 'BUILD_DRY_RUN', defaultValue: true, description: 'Run all build stages but skip the final Artifactory publish — set to false for a full production run')
+        booleanParam(name: 'ENABLEGPGSIGNING', defaultValue: true, description: 'Require GPG Signing')
+        booleanParam(name: 'ENABLEDEBUG', defaultValue: false, description: 'Tick to enable --stacktrace for gradle build')
+        booleanParam(name: 'REPACKAGE', defaultValue: false, description: 'Tick if this is a republish of an existing package, ie xx.xxx.2 , rather than the base release of a package (1)')
+        string(name: 'PACKAGE_INCREMENT', defaultValue: '1', description: 'This is the incremental number used for re-releases of package versions - Should be set appropriately if RePackage is True')
+        string(name: 'TEMURIN_VERSION_INCREMENT', defaultValue: '0', description: 'Final Element Of The Version Number - Used For Temurin Specific Patches - NEARLY ALWAYS ZERO')
+
+        // Add Some Parameter To Allow Selective Builds Of Packages
+        booleanParam(name: 'SKIP_DEBIAN', defaultValue: false, description: 'Tick if you dont want to run the Debian package builds and publishes')
+        booleanParam(name: 'SKIP_ALPINE', defaultValue: false, description: 'Tick if you dont want to run the Alpine package builds and publishes')
+        booleanParam(name: 'SKIP_RHEL', defaultValue: false, description: 'Tick if you dont want to run the RHEL RPM package builds and publishes')
+        booleanParam(name: 'SKIP_SUSE', defaultValue: false, description: 'Tick if you dont want to run the SUSE RPM package builds and publishes')
+        booleanParam(name: 'SKIP_SRC', defaultValue: false, description: 'Tick if you dont want to upload the source files to the github repository')
+
+        // Handle Parameters From Upstream Job That Are Not Required.
+        string(name: 'UPSTREAM_JOB_NAME', defaultValue: '', description: 'Parameter From Upstream Job Not Required Here')
+        string(name: 'UPSTREAM_JOB_NUMBER', defaultValue: '', description: 'Parameter From Upstream Job Not Required Here')
+        booleanParam(name: 'UPLOAD_TESTRESULTS_ONLY', defaultValue: false, description: 'Parameter From Upstream Job Not Required Here')
+        string(name: 'TIMESTAMP', defaultValue: '', description: 'Parameter From Upstream Job Not Required Here')
+        password(name: 'GITHUB_TOKEN', defaultValue: '', description: 'Parameter From Upstream Job Not Required Here')
+        string(name: 'ARTIFACTS_TO_SKIP', defaultValue: '', description: 'Parameter From Upstream Job Not Required Here')
+    }
+    // Stage Definition - Start
+    stages {
+        // Print Parameters Stage - Start
+        stage('Print Parameters') {
+            agent { label NODE_LABEL }
+            steps {
+                script {
+                    echo "Entering Stage : Print Parameters"
+                    echo "Tag : ${params.TAG}"
+                    echo "Version : ${params.VERSION}"
+                    echo "Artifacts : ${params.ARTIFACTS_TO_COPY}"
+                    echo "Release : ${params.RELEASE}"
+                    echo "Dry Run : ${params.DRY_RUN}"
+                    echo "Build Dry Run : ${params.BUILD_DRY_RUN}"
+
+                    if (params.DRY_RUN) {
+                        echo "This Is A Dry Run - And As No Packages Are Potentially On Github - No Further Stages Will Run"
+                    } else if (params.BUILD_DRY_RUN) {
+                        echo "Build Dry Run Enabled - Packages Will Be Built And Archived But NOT Published To Artifactory"
+                    } else {
+                        echo "Not A Dry Run - About To Build And Publish Packages"
+                    }
+                }
+            }
+        }
+        // Print Parameters Stage - End
+        // Process Parameters Stage - Start
+        stage('Process Parameters') {
+            agent { label NODE_LABEL }
+            when {
+                expression { return params.DRY_RUN == false }
+            }
+            steps {
+                script{
+                    echo "Entering Stage : Process Parameters"
+
+                    if (params.ARTIFACTS_TO_COPY.contains('alpine-linux')) {
+                        distro = "alpine-linux"
+                    } else if (params.ARTIFACTS_TO_COPY.contains('linux')) {
+                        distro = "linux"
+                    } else {
+                        echo "[WARNING] Unsupported distro in ARTIFACTS_TO_COPY: ${params.ARTIFACTS_TO_COPY}"
+                        distro = null
+                        currentBuild.result = 'NOT_BUILT'
+                        currentBuild.description = "UNSUPPORTED_DISTRO / UNSUPPORTED_ARCH / ${params.TAG ?: 'NO_TAG'}"
+                        return
+                    }
+
+                    // Valid architectures
+                    def validArchs = ['aarch64', 'x64', 's390x', 'arm', 'ppc64le', 'riscv64']
+
+                    // Extract architectures from the parameter
+                    def specifiedPaths = params.ARTIFACTS_TO_COPY.tokenize(',') // Split by commas
+                    def extractedArchs = specifiedPaths.collect { path ->
+                        validArchs.find { validArch -> path.contains("/${validArch}/") }}.unique() // Get unique architectures
+
+                    // Validate architectures
+                    if (extractedArchs.size() == 1) {
+                        def check_arch = extractedArchs[0]
+                        println "Valid architecture identified: ${check_arch}"
+                        arch = extractedArchs[0]
+                    } else if (extractedArchs.isEmpty()) {
+                        echo "[WARNING] No valid architecture found in ARTIFACTS_TO_COPY: ${params.ARTIFACTS_TO_COPY}"
+                        arch = null
+                        currentBuild.result = 'NOT_BUILT'
+                        def distroLabel = (distro in ['linux', 'alpine-linux']) ? distro.toUpperCase() : "UNSUPPORTED_DISTRO (${distro ?: 'null'})"
+                        currentBuild.description = "${distroLabel} / UNSUPPORTED_ARCH (null) / ${params.TAG ?: 'NO_TAG'}"
+                        return
+                    } else {
+                        echo "[WARNING] Multiple architectures found: ${extractedArchs}"
+                        arch = null
+                        currentBuild.result = 'NOT_BUILT'
+                        def distroLabel = (distro in ['linux', 'alpine-linux']) ? distro.toUpperCase() : "UNSUPPORTED_DISTRO (${distro ?: 'null'})"
+                        currentBuild.description = "${distroLabel} / MULTIPLE_ARCHS (${extractedArchs.join(',')}) / ${params.TAG ?: 'NO_TAG'}"
+                        return
+                    }
+
+                     if (params.ARTIFACTS_TO_COPY.contains('alpine-linux')) {
+                        // Derive Node To Build Alpine Packages On
+                        PKGBUILDLABELAPK = getPackageBuildLabel(arch, 'APK')
+                    } else if (params.ARTIFACTS_TO_COPY.contains('linux')) {
+                        // Derive Node To Build Linux Packages On
+                        PKGBUILDLABELDEB = getPackageBuildLabel(arch, 'DEB')
+                        PKGBUILDLABELRHEL = getPackageBuildLabel(arch, 'RHEL')
+                    } else {
+                        println "WARNING: The Artifacts Are For Neither Linux OR Alpine - So I Cant Determine Appropriate Node Labels"
+                        currentBuild.result = 'UNSTABLE' // Also Consider NOT_BUILT
+                        error("Pipeline Skipped Due To Triggered For Neither Alpine Or Linux")
+                    }
+
+                    // Set build description for supported combinations
+                    def distroLabel = (distro in ['linux', 'alpine-linux']) ? distro.toUpperCase() : "UNSUPPORTED_DISTRO (${distro ?: 'null'})"
+                    def archLabel = (arch in validArchs) ? arch : "UNSUPPORTED_ARCH (${arch ?: 'null'})"
+                    def tagLabel = params.TAG ?: "NO_TAG"
+                    currentBuild.description = "${distroLabel} / ${archLabel} / ${tagLabel}"
+
+                    // Map Architectures From Source To Dist Suitable Values
+
+                    packagearchDeb = (arch == 'x64') ? 'amd64' :
+                    (arch == 'arm') ? 'armhf' :
+                    (arch == 'aarch64') ? 'arm64' :
+                    (arch == 'ppc64le') ? 'ppc64el' :
+                    (arch == 's390x') ? 's390x' :
+                    (arch == 'riscv64') ? 'riscv64' :
+                    'unknown'
+
+                    packagearchRhel = (arch == 'x64') ? 'x86_64' :
+                    (arch == 'arm') ? 'armv7hl' :
+                    (arch == 'aarch64') ? 'aarch64' :
+                    (arch == 'ppc64le') ? 'ppc64le' :
+                    (arch == 's390x') ? 's390x' :
+                    (arch == 'riscv64') ? 'riscv64' :
+                    'unknown'
+
+                    // Version Number Parsing
+                    def vername = ''
+                    def verversion = ''
+                    def verbuild = ''
+
+                    // Add Special Handling For JDK8 Version Number
+                    if (params.TAG?.startsWith("jdk8")) {
+                        echo "JDK 8"
+                        def split = (params.TAG =~ /(jdk)(\d+u\d+)-(b\d+)/)
+                        if (split.find()) {
+                            // println("Full Match: ${split[0][0]}")
+                            vername = split[0][1]          // "jdk"
+                            verversion = split[0][2]       // "8u432"
+                            verbuild = split[0][3]         // "06"
+                        } else {
+                            error("The version string format does not match the expected pattern.")
+                        }
+                    } else {
+                        echo "Not JDK8"
+                        // Parse the version tag into usable components.
+                        def split = (params.TAG =~ /(jdk)-(\d[\d.]*)([+_]\d+)?/)
+                        if (split.find()) {
+                            vername = split.group(1)
+                            verversion = split.group(2)
+                            verbuild = split.group(3)?.replaceAll("[+_]", "")
+                        } else {
+                            error("The version string format does not match the expected pattern.")
+                        }
+                    }
+
+                    // Construct the Filename
+                    def filenameFinal =""
+                    def filenamePrefix = "Open"
+                    def filenameSuffix = "tar.gz"
+                    def filenameVersion = params.VERSION.toUpperCase() + "U"
+                    def packageTypes = ['jdk', 'jre']
+
+                    packageTypes.each { packageType ->
+                    if (params.TAG?.startsWith("jdk8")) {
+                        filenameFinal = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${JVM}_${verversion}${verbuild ?: 'N/A'}"
+                        ReleaseVersion = "${verversion}${verbuild ?: 'N/A'}"
+                    } else {
+                        filenameFinal = "${filenamePrefix}${filenameVersion}-${packageType}_${arch}_${distro}_${JVM}_${verversion}_${verbuild ?: 'N/A'}"
+                        ReleaseVersion = "${verversion}_${verbuild ?: 'N/A'}"
+                    }
+
+                    def JDKFinal = "${filenameFinal}.${filenameSuffix}"
+                    def SHAFinal = "${JDKFinal}.sha256.txt"
+
+                    DLfilenames << JDKFinal
+                    DLfilenames << SHAFinal
+
+                    JDKArray << [ "${packageType}" , "${JDKFinal}", "${SHAFinal}" , "${distro}" , "${arch}" , "${ReleaseVersion}" ]
+                }
+
+                // Set Package Release Version If Repackage
+                if (params.REPACKAGE) {
+                    PackageReleaseVersion = params.PACKAGE_INCREMENT
+                }
+            }
+        }
+    }
+    // Process Parameters Stage - End
+    // Validate Artifacts Stage - Start
+    stage('Validate Artifacts') {
+        agent { label NODE_LABEL }
+        when {
+            expression { return !shouldSkipPipeline && !params.DRY_RUN }
+        }
+        steps {
+            script {
+                echo "Entering Stage : Validate Artifacts"
+
+                JDKArray.each { ArrayElement ->
+                def (PTYPE, PFILE, PSIGN, PDIST, PARCH, PVERS) = ArrayElement
+                def Binurl = "${dlURL}/${PFILE}"
+                def SHAurl = "${dlURL}/${PSIGN}"
+
+                // Download binary and checksum
+                downloadArtifact(Binurl)
+                downloadArtifact(SHAurl)
+
+                // Validate checksum
+                def calculatedChecksum = validateChecksum(PFILE, PSIGN)
+
+                // Special Case : Arm 32 has a different tag format as its built from a seperate repo
+                // It does require a different tag for the specfiles, which can be extracted from the tarball.
+                if (PARCH == "arm") {
+                    upstreamversionARM32 = extractUpstreamVersionFromTar(PFILE)
+                }
+
+                // Cleanup temporary files
+                cleanupFiles([PFILE, PSIGN])
+
+                // Update array with the validated information
+                ModifiedJDKArray << [PTYPE, PFILE, PSIGN, PDIST, PARCH, PVERS, calculatedChecksum, Binurl]
+            }
+            JDKArray = ModifiedJDKArray
+        }
+    }
+}
+// Generate Spec File Stage - Start
+stage('Generate Spec File') {
+    agent { label NODE_LABEL }
+    when {
+        expression { return !shouldSkipPipeline && !params.DRY_RUN }
+    }
+    steps {
+        script {
+            echo "Entering Stage : Generate Spec File"
+            JDKArray.each { ArrayElement ->
+            // echo "${ArrayElement}"
+            // Assign Tuple Values To Vars
+            def PTYPE = ArrayElement[0]
+            def PFILE = ArrayElement[1]
+            def PSIGN = ArrayElement[2]
+            def PDIST = ArrayElement[3]
+            def PARCH = ArrayElement[4]
+            def PVERS = ArrayElement[5]
+            def PCSUM = ArrayElement[6]
+            def PKURL = ArrayElement[7]
+
+            // Generate Date For Use In Various Places
+            def getDate = new Date(currentBuild.startTimeInMillis)
+            // Format The Date
+            def currentDate = getDate.format("EEE, dd MMM yyyy HH:mm:ss Z", TimeZone.getTimeZone('UTC'))
+            def currentDateRHEL = getDate.format("EEE MMM d yyyy", TimeZone.getTimeZone('UTC'))
+            echo "Current Date: ${currentDate}"
+            echo "Current Date RHEL: ${currentDateRHEL}"
+
+            // Setup List Of Packages To Build
+            if (PDIST == 'alpine-linux') {
+                DISTS_TO_BUILD = ['alpine']
+            } else if (PDIST == 'linux') {
+                DISTS_TO_BUILD = ['rhel', 'suse', 'debian']
+            } else {
+                error("Unsupported dist: ${PDIST}")
+            }
+            DISTS_TO_BUILD.each { DistArrayElement ->
+
+            // Parse version components once per distro iteration
+            def (parsedRelease, parsedVersion, parsedBuild) = parseVersionComponents(PVERS, params.TAG?.startsWith("jdk8"))
+            Release = parsedRelease
+            Version = parsedVersion
+            Build   = parsedBuild
+
+            def packagever
+            def changelogversion
+            packagearch = PARCH
+            def templatebase
+            def outputfile
+
+            // Reformat Any Variables For Distribution Specific Oddities
+
+            if (DistArrayElement == 'alpine' && !params.SKIP_ALPINE) {
+                (packagever, changelogversion) = buildPackageVer(Release, Version, Build, PVERS, 'alpine', TemurinVersion)
+                upstreamversion = "" // Upstream Version Is Not Required For Alpine
+                // Reformat x64 For Alpine
+                if (PARCH == 'x64') {
+                    packagearch = "x86_64"
+                }
+                outputfile = "APKBUILD"
+                templatebase = (Release == "8") ?
+                    "./linux_v3/${PTYPE}/${DistArrayElement}/src/main/packaging/${PRODUCT}/${DistArrayElement}.${PTYPE}8.template.j2" :
+                    "./linux_v3/${PTYPE}/${DistArrayElement}/src/main/packaging/${PRODUCT}/${DistArrayElement}.${PTYPE}.template.j2"
+                if (!fileExists(templatebase)) { error("Template File Not Found At : ${templatebase}") }
+                def speccmd = "python3 linux_v3/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearch}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${packagever}\" \"${upstreamversion}\""
+                echo "Spec Command : ${speccmd}"
+                echo "Result : ${sh(script: speccmd, returnStatus: true)}"
+            }
+
+            if (DistArrayElement == "debian" && !params.SKIP_DEBIAN) {
+                echo "Processing Debian Files"
+                (packagever, changelogversion) = buildPackageVer(Release, Version, Build, PVERS, 'debian', TemurinVersion)
+                ['changelog', 'control', 'rules'].each { debianFilesArrayElement ->
+                    echo "Processing Debian ${debianFilesArrayElement} File"
+                    outputfile   = debianFilesArrayElement
+                    templatebase = (Release == "8") ?
+                        "./linux_v3/${PTYPE}/${DistArrayElement}/src/main/packaging/${PRODUCT}/${DistArrayElement}-8/${debianFilesArrayElement}.template.j2" :
+                        "./linux_v3/${PTYPE}/${DistArrayElement}/src/main/packaging/${PRODUCT}/${DistArrayElement}/${debianFilesArrayElement}.template.j2"
+                    if (!fileExists(templatebase)) { error("Template File Not Found At : ${templatebase}") }
+                    def speccmd = "python3 linux_v3/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearchDeb}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDate}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${packagever}\" \"${upstreamversion}\""
+                    sh(script: speccmd, returnStatus: true)
+                }
+            }
+
+            if ((DistArrayElement == "rhel" && !params.SKIP_RHEL) ||
+                (DistArrayElement == "suse" && !params.SKIP_SUSE)) {
+
+                (packagever, changelogversion) = buildPackageVer(Release, Version, Build, PVERS, 'rhel', TemurinVersion)
+                upstreamversion = (Release == "8") ?
+                    params.TAG.replaceFirst("^jdk", "") :
+                    params.TAG.replaceFirst("^jdk-", "")
+
+                if (PARCH == 'arm') {
+                    // If JDK8 ARM32, then deduce correct upstream from extracted tarball version
+                    upstreamversionARM32 = upstreamversionARM32.replaceFirst("^jdk", "").replaceAll(/-(jre|jdk)$/, "")
+                }
+
+                templatebase = (Release == "8") ?
+                    "./linux_v3/${PTYPE}/${DistArrayElement}/src/main/packaging/${PRODUCT}/temurin-8-${PTYPE}.template.j2" :
+                    "./linux_v3/${PTYPE}/${DistArrayElement}/src/main/packaging/${PRODUCT}/temurin-${PTYPE}.template.j2"
+                outputfile   = "${PRODUCT}-${Release}-${PTYPE}.spec"
+                if (!fileExists(templatebase)) { error("Template File Not Found At : ${templatebase}") }
+                def speccmd = "python3 linux_v3/generate_spec.py \"${templatebase}\" \"${packagever}\" \"${packagearchRhel}\" \"${PKURL}\" \"${PCSUM}\" \"${PFILE}\" \"${outputfile}\" \"${currentDateRHEL}\" \"${PackageReleaseVersion}\" \"${upstreamversion}\" \"${changelogversion}\" \"${upstreamversionARM32}\""
+                sh(script: speccmd, returnStatus: true)
+            }
+        }
+}
+
+// Archive & store the generated files, for future reference
+
+ArchiveFileName = "Package_Bld_Src_${distro}_${params.TAG}_${arch}_${env.BUILD_NUMBER}.tar.gz"
+echo "ArchiveFileName = ${ArchiveFileName}"
+sh "find ./linux_v3 -type f \\( -name '*.spec' -o -name 'control' -o -name 'changelog' -o -name 'rules' -o -name 'APKBUILD' \\) | tar -czf ./${ArchiveFileName} -T -"
+
+// Publish the tarball
+archiveArtifacts artifacts: "${ArchiveFileName}", allowEmptyArchive: false
+
+// Stash the generated build files for use throughout the rest of the process
+dir('linux_v3') {
+    stash name: 'installercode', includes: '**'
+      }
+    }
+  }
+}
+// Generate Spec File Stage - End
+// Build And Archive Packages Stage - Start
+stage('Build & Archive Package') {
+    when {
+        expression { return !shouldSkipPipeline && !params.DRY_RUN }
+    }
+    steps {
+        script {
+            echo "Entering Stage : Build & Archive Package"
+            DISTS_TO_BUILD.each { DistArrayElement ->
+            def nodeLabel = ''
+            if (DistArrayElement == 'alpine') {
+                nodeLabel = PKGBUILDLABELAPK
+            } else if (DistArrayElement == 'debian') {
+                nodeLabel = PKGBUILDLABELDEB
+            } else if (DistArrayElement in ['rhel', 'suse']) {
+                nodeLabel = PKGBUILDLABELRHEL
+            } else {
+                error "Unknown DistArrayElement: ${DistArrayElement}"
+            }
+
+            node(label: nodeLabel) { // Assign node dynamically based on distribution type
+
+            // Docker --mount option requires BuildKit
+            env.DOCKER_BUILDKIT = 1
+            env.COMPOSE_DOCKER_CLI_BUILD = 1
+
+            // Prepare Workspace
+            cleanWs()
+            unstash 'installercode'
+
+            try {
+                def PackagesToBuild = ['jdk', 'jre']
+                def buildCli
+                PackagesToBuild.each { PackageArrayElement ->
+                echo "Building Package: ${PackageArrayElement} for ${DistArrayElement}"
+                def gBuildTask = (packagearch in ['x86_64', 'amd64']) ?
+                "package${PackageArrayElement}${DistArrayElement} check${PackageArrayElement}${DistArrayElement}" :
+                "package${PackageArrayElement}${DistArrayElement}"
+
+                // Override Package Arch To Be Dist Specific
+
+                if (DistArrayElement == "rhel" || DistArrayElement == "suse") {
+                    buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchRhel}"
+                } else if (DistArrayElement == "debian") {
+                    buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearchDeb}"
+                } else {
+                    buildCli = "./gradlew ${gBuildTask} --parallel -PPRODUCT=${PRODUCT} -PPRODUCT_VERSION=${Release} -PARCH=${packagearch}"
+                }
+
+                // Config map: distro -> [credentialId (null = no signing), skipFlag, archiveDependencyDir]
+                def distroConfig = [
+                    alpine: [credId: 'adoptium-artifactory-rsa-key', skip: params.SKIP_ALPINE, depDir: 'apk'],
+                    debian: [credId: null,                            skip: params.SKIP_DEBIAN, depDir: 'deb'],
+                    rhel:   [credId: 'adoptium-artifactory-gpg-key', skip: params.SKIP_RHEL,   depDir: 'rpm'],
+                    suse:   [credId: 'adoptium-artifactory-gpg-key', skip: params.SKIP_SUSE,   depDir: 'rpm']
+                ]
+                def cfg = distroConfig[DistArrayElement]
+
+                if (params.ENABLEGPGSIGNING && cfg.credId != null) {
+                    echo "Using signing key for ${DistArrayElement}: ${cfg.credId}"
+                    withCredentials([file(credentialsId: cfg.credId, variable: 'GPG_KEY')]) {
+                        buildCli += " -PGPG_KEY=${env.GPG_KEY}"
+                        buildCli = params.ENABLEDEBUG.toBoolean() ? buildCli + ' --stacktrace' : buildCli
+                        sh("$buildCli")
+                    }
+                } else {
+                    if (DistArrayElement == 'debian') {
+                        echo "Debian Does Not Use Signing"
+                    } else {
+                        echo "Building Without Signing"
+                    }
+                    buildCli = params.ENABLEDEBUG.toBoolean() ? buildCli + ' --stacktrace' : buildCli
+                    sh("$buildCli")
+                }
+            }
+        } catch (Exception ex) {
+            echo "Exception in build for ${DistArrayElement}: ${ex}"
+            currentBuild.result = 'FAILURE'
+        } finally {
+            def basePattern = '**/build/ospackage/*,**/build/reports/**'
+            def cfg = [
+                alpine: [skip: params.SKIP_ALPINE, depDir: 'apk'],
+                debian: [skip: params.SKIP_DEBIAN, depDir: 'deb'],
+                rhel:   [skip: params.SKIP_RHEL,   depDir: 'rpm'],
+                suse:   [skip: params.SKIP_SUSE,   depDir: 'rpm']
+            ][DistArrayElement]
+
+            if (!cfg.skip) {
+                archiveArtifacts artifacts: "${basePattern},**/packageTest/dependencies/${cfg.depDir}/*",
+                    onlyIfSuccessful: false,
+                    allowEmptyArchive: false
+            } else {
+                echo "Skipping archive for ${DistArrayElement.capitalize()} as SKIP_${DistArrayElement.toUpperCase()} is true"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+// Build And Archive Packages Stage - End
+// Publish Packages Stage - Start
+stage('Publish Packages') {
+    agent { label NODE_LABEL }
+    tools {
+        jfrog 'jfrog-cli'
+    }
+    when {
+        expression { return !shouldSkipPipeline && !params.DRY_RUN && !params.BUILD_DRY_RUN }
+    }
+    steps {
+        script {
+            echo "Entering Stage : Publish Packages"
+
+            // Shared closure for uploading RPM packages (RHEL and SUSE share identical logic)
+            def uploadRpm = { String globPrefix, List distroList, boolean skip, String label ->
+                echo "Preparing For ${label} Upload"
+                def packFiles = findFiles(glob: "**/${globPrefix}/build/ospackage/t*.rpm") +
+                                findFiles(glob: "**/${globPrefix}/build/ospackage/j*.rpm")
+                for (packFile in packFiles) {
+                    def fileName = packFile.name
+                    def filePath = packFile.path
+                    def archEx = fileName =~ /(?:\d+\.\d+-\d+)\.(\w+)\.(?:src\.)?rpm/
+                    def architecture = archEx ? archEx[0][1] : null
+                    if (fileName.contains(".src.rpm")) {
+                        architecture = "source"
+                    }
+                    distroList.each { rpmDistro ->
+                        def key = "${rpmDistro}/${architecture}"
+                        def target = "${key}/Packages"
+                        if (!skip) {
+                            CheckAndUpload(target, "RPMS", architecture, '', '', fileName, target, key, filePath)
+                        } else {
+                            echo "SKIP_${label} parameter is set, skipping publish."
+                        }
+                    }
+                }
+            }
+
+            echo "Done Retrieving Files"
+
+            // Distro Specific Uploads
+            if (distro == 'alpine-linux' && !params.SKIP_ALPINE) {
+                echo "ALPINE UPLOAD"
+                copyArtifacts projectName: "${env.JOB_NAME}",
+                selector: specific("${env.BUILD_NUMBER}"),
+                filter: '**/build/ospackage/*,**/build/reports/**,**/packageTest/dependencies/deb/*'
+                AlpArch = arch
+                if (arch == 'x64') {
+                    echo "Fixing Arch For Alpine"
+                    AlpArch = "x86_64"
+                }
+                def AlpDistro = "Alpine"
+                def PackFiles = findFiles(glob: '**/build/ospackage/temurin-*j*.apk') // List All Packages To Upload
+                def SrcFiles = findFiles(glob: '**/build/ospackage/temurin-*src*.apk') // List All Sources To Upload
+                def AllFiles = PackFiles + SrcFiles
+                for (AlpPackFile in AllFiles) {
+                    def AlpFileName = AlpPackFile.name
+                    def AlpFilePath = AlpPackFile.path
+                    def Target = "apk/alpine/main/${AlpArch}"
+                    if (!params.SKIP_ALPINE) {
+                        CheckAndUpload(Target, AlpDistro, AlpArch, '', '', '', '', '' , AlpFileName)
+                       } else {
+                          echo 'SKIP_ALPINE parameter is set, skipping publish.'
+                       }
+                }
+            }
+            if (distro == 'linux' && (!params.SKIP_DEBIAN || !params.SKIP_RHEL || !params.SKIP_SUSE)) {
+                echo "Linux Upload"
+                copyArtifacts projectName: "${env.JOB_NAME}",
+                selector: specific("${env.BUILD_NUMBER}"),
+                filter: '**/build/ospackage/*,**/build/reports/**,**/packageTest/dependencies/deb/*'
+
+                echo "Preparing For Debian Upload"
+                def DebFileName = ''
+                def DebTarget = ''
+                // Creates list like deb.distribution=stretch;deb.distribution=trixie;
+                deb_distros.each { deb_version ->
+                distro_list += "deb.distribution=${deb_version};"
+                }
+                def DebDistro = "Debian"
+                def DebPackFiles = findFiles(glob: "**/build/ospackage/temurin-*.deb") // List All Packages To Upload
+                for (DebPackFile in DebPackFiles) {
+                    DebFileName = DebPackFile.name
+                    def DebFilePath = DebPackFile.path
+                    DebTarget = "deb/pool/main/t/temurin-${Release}"
+                    def DebArchEx = (DebFileName =~ /_(\w+)\.deb$/)
+                    def DebArch = DebArchEx[0][1]
+                    if (!params.SKIP_DEBIAN) {
+                        CheckAndUpload(DebTarget, DebDistro, DebArch, '', distro_list, '', '', DebFileName, DebPackFile.path)
+                    } else {
+                        echo 'SKIP_DEBIAN parameter is set, skipping publish.'
+                    }
+                }
+                    uploadRpm('rhel', rhel_distros, params.SKIP_RHEL, 'RHEL')
+                    uploadRpm('suse', suse_distros, params.SKIP_SUSE, 'SUSE')
+                } // End Of Linux Distro
+      }
+// End OF Script
+    }
+// Publish Packages Stage - End
+// Housekeeping Step
+    post {
+      always {
+        cleanWs(deleteDirs: true, disableDeferredWipeout: true)
+      }
+    }
+// End Housekeeping
+  }
+// Stage Definition - End
+}
+post {
+    success {
+        script {
+            if (!params.DRY_RUN && !params.BUILD_DRY_RUN) {
+                echo 'Build succeeded. Triggering downstream job...'
+                echo "Release : ${params.TAG}"
+                echo "FileName : ${ArchiveFileName}"
+
+                if (!params.SKIP_SRC) {
+                    build job: 'publish_linux_pkg_src', parameters: [
+                    string(name: 'TAG', value: params.TAG),
+                    string(name: 'FILENAME', value: ArchiveFileName)
+                  ]
+                } else {
+                  echo 'SKIP_SRC parameter is set, skipping publish.'
+                }
+            } else {
+                echo 'Dry Run is enabled. Skipping downstream job trigger.'
+            }
+        }
+    }
+}
+// End Of Post Build Trigger Stage
+}
+// Pipeline Definition - End
