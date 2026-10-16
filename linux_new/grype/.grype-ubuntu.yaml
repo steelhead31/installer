@@ -1,7 +1,7 @@
 # .grype-ubuntu.yaml — Grype config for Ubuntu/Debian DEB content scanning
 # Used by grype-linux-scan.sh when distro matches ubuntu:* or debian:*
 
-distro: 'ubuntu:22.04'
+distro: 'ubuntu:24.04'
 
 output:
   - table

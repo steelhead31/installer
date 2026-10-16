@@ -3,7 +3,7 @@
 # All settings can also be overridden by environment variables (GRYPE_*)
 
 # Distro hint for CPE/advisory matching. Override with --distro alpine:X.Y
-distro: 'alpine:3.21'
+distro: 'alpine:3.24'
 
 output:
   - table

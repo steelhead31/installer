@@ -15,7 +15,7 @@
 #   ./grype-apk-scan.sh [OPTIONS] *.apk
 #
 # Options:
-#   --distro DISTRO     Alpine version hint (default: alpine:3.21 or $GRYPE_DISTRO)
+#   --distro DISTRO     Alpine version hint (default: alpine:3.24 or $GRYPE_DISTRO)
 #   --fail-on SEVERITY  Exit 2 if severity >= this  (default: high or $GRYPE_FAIL_ON)
 #   --config FILE       Grype config file           (default: .grype.yaml in script dir or CWD)
 #   --output-dir DIR    Directory for reports       (default: ./grype-results)
@@ -23,7 +23,7 @@
 #   --only-fixed        Only report vulnerabilities with a known fix
 #
 # Environment variable overrides:
-#   GRYPE_DISTRO          e.g. alpine:3.21
+#   GRYPE_DISTRO          e.g. alpine:3.24
 #   GRYPE_FAIL_ON         e.g. high
 #   GRYPE_CONFIG          path to .grype.yaml
 #   GRYPE_OUTPUT_DIR      output directory for reports
@@ -38,7 +38,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
-DISTRO="${GRYPE_DISTRO:-alpine:3.21}"
+DISTRO="${GRYPE_DISTRO:-alpine:3.24}"
 FAIL_ON="${GRYPE_FAIL_ON:-high}"
 OUTPUT_DIR="${GRYPE_OUTPUT_DIR:-./grype-results}"
 SHOW_SUPPRESSED=false

@@ -76,13 +76,13 @@ Automated content-based vulnerability scanning is integrated via [Anchore Grype]
 
 # Scan Debian / Ubuntu DEB packages
 ./linux_new/grype/grype-linux-scan.sh \
-    --distro ubuntu:22.04 \
+    --distro ubuntu:24.04 \
     --output-dir /tmp/grype-results \
     build/ospackage/*.deb
 
 # Scan Alpine APK packages
 ./linux_new/grype/grype-apk-scan.sh \
-    --distro alpine:3.21 \
+    --distro alpine:3.24 \
     --output-dir /tmp/grype-results \
     build/ospackage/*.apk
 

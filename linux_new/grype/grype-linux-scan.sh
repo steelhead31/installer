@@ -19,7 +19,7 @@
 #
 # Options:
 #   --distro DISTRO     Target distro for CVE matching (default: auto-detect from path,
-#                       or $GRYPE_DISTRO). Examples: ubuntu:22.04  rhel:9  sles:15
+#                       or $GRYPE_DISTRO). Examples: ubuntu:24.04  rhel:9  sles:15
 #   --fail-on SEVERITY  Exit 2 if severity >= this (default: high or $GRYPE_FAIL_ON)
 #   --config FILE       Grype config file (default: .grype-<distro>.yaml or .grype.yaml)
 #   --output-dir DIR    Directory for reports (default: ./grype-results)
@@ -55,7 +55,7 @@ pkg_type()      { case "$1" in *.deb) echo "deb" ;; *.rpm) echo "rpm" ;; esac; }
 
 default_distro() {
     case "$(pkg_type "$1")" in
-        deb) echo "ubuntu:22.04" ;;
+        deb) echo "ubuntu:24.04" ;;
         rpm)
             if echo "$1" | grep -qi "suse\|sles"; then echo "sles:15"
             else echo "rhel:9"; fi ;;

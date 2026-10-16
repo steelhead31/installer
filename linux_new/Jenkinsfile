@@ -533,9 +533,9 @@ def scanArtifactsForDist(String dist) {
     def fileArgs = filesToScan.join(' ')
     def distroFlag = ""
     if (dist == 'alpine') {
-        distroFlag = "--distro alpine:3.21"
+        distroFlag = "--distro alpine:3.24"
     } else if (dist == 'debian') {
-        distroFlag = "--distro ubuntu:22.04"
+        distroFlag = "--distro ubuntu:24.04"
     } else if (dist == 'rhel') {
         distroFlag = "--distro rhel:9"
     } else if (dist == 'suse') {
