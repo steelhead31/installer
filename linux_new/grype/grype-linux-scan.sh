@@ -51,6 +51,40 @@ ONLY_FIXED=false
 PKG_FILES=()
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+ensure_grype() {
+    if command -v grype >/dev/null 2>&1; then
+        return 0
+    fi
+
+    for candidate in "$HOME/.local/bin" "/usr/local/bin" "/tmp/bin"; do
+        if [[ -x "$candidate/grype" ]]; then
+            export PATH="$candidate:$PATH"
+            return 0
+        fi
+    done
+
+    echo "grype not found in PATH. Attempting automatic installation..." >&2
+    local install_dir="${GRYPE_INSTALL_DIR:-$HOME/.local/bin}"
+    mkdir -p "$install_dir"
+
+    local installed=false
+    if command -v curl >/dev/null 2>&1; then
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b "$install_dir" && installed=true
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO- https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b "$install_dir" && installed=true
+    fi
+
+    if [[ "$installed" == true && -x "$install_dir/grype" ]]; then
+        export PATH="$install_dir:$PATH"
+        echo "grype successfully installed to $install_dir/grype" >&2
+        return 0
+    fi
+
+    echo "ERROR: grype is required but not installed and automatic installation failed." >&2
+    echo "Please install grype (e.g., 'curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin') or ensure it is in PATH." >&2
+    return 1
+}
+
 pkg_type()      { case "$1" in *.deb) echo "deb" ;; *.rpm) echo "rpm" ;; esac; }
 
 default_distro() {
@@ -126,6 +160,8 @@ done
 }
 
 # ── Setup ──────────────────────────────────────────────────────────────────────
+ensure_grype || exit 1
+
 WORK_DIR="$(mktemp -d /tmp/grype-linux-scan.XXXXXX)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 mkdir -p "$OUTPUT_DIR"
@@ -195,7 +231,7 @@ done
 # ── Summary Report Generation ──────────────────────────────────────────────────
 echo "═══════════════════════════════════════════════════════════"
 echo "  Generating summary report in $OUTPUT_DIR/ ..."
-if [[ -f "$SCRIPT_DIR/grype-summary-report.py" ]]; then
+if [[ -f "$SCRIPT_DIR/grype-summary-report.py" ]] && command -v python3 >/dev/null 2>&1; then
     python3 "$SCRIPT_DIR/grype-summary-report.py" \
         "$OUTPUT_DIR" \
         --format text \
