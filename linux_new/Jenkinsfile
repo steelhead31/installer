@@ -521,7 +521,8 @@ def runGrypeScan() {
         sh "docker build -t temurin-grype-scanner -f ./grype/Dockerfile ./grype"
 
         echo "Executing Grype scan inside container..."
-        def dockerCmd = "docker run --rm -u \$(id -u):\$(id -g) -v \${PWD}:/work -w /work temurin-grype-scanner --search-dir /work --output-dir /work/${outDir}"
+        // HOME must be writable: the host UID has no passwd entry in the image, so '~/.cache/grype/db' would otherwise resolve to '/.cache'
+        def dockerCmd = "docker run --rm -u \$(id -u):\$(id -g) -e HOME=/tmp -v \${PWD}:/work -w /work temurin-grype-scanner --search-dir /work --output-dir /work/${outDir}"
         scanStatus = sh(script: dockerCmd, returnStatus: true)
     } else {
         echo "Docker not available or Dockerfile missing; executing Grype scan directly on agent host..."
