@@ -3,29 +3,23 @@ ARG CONTAINER_REGISTRY=""
 FROM ${CONTAINER_REGISTRY}tianon/gosu AS gosu
 FROM ${CONTAINER_REGISTRY}opensuse/leap:15.6
 
-# Retry on transient mirror/digest failures; there is no TTY in a build, so
-# run zypper non-interactively and clear cached metadata between attempts.
-RUN set -e; \
-	for attempt in 1 2 3; do \
-		if zypper --non-interactive --gpg-auto-import-keys refresh \
-			&& zypper --non-interactive update -y \
-			&& zypper --non-interactive install -y rpm-build \
-				rpm-devel \
-				rpmdevtools \
-				rpmlint \
-				dirmngr \
-				tar \
-				dpkg \
-				findutils \
-				tini \
-				wget; then \
-			exit 0; \
-		fi; \
-		echo "zypper attempt ${attempt} failed, cleaning metadata and retrying" >&2; \
-		zypper --non-interactive clean --all || true; \
-		sleep $((attempt * 10)); \
-	done; \
-	exit 1
+# Fetch repository metadata over HTTPS so it cannot be altered in transit by an
+# intermediate proxy (plain HTTP produced "Digest verification failed" on some
+# build agents). Digest and GPG verification remain enabled. There is no TTY in
+# a build, so run zypper non-interactively.
+RUN sed -i 's#http://download.opensuse.org#https://download.opensuse.org#g' /etc/zypp/repos.d/*.repo \
+	&& zypper --non-interactive --gpg-auto-import-keys refresh \
+	&& zypper --non-interactive update -y \
+	&& zypper --non-interactive install -y rpm-build \
+		rpm-devel \
+		rpmdevtools \
+		rpmlint \
+		dirmngr \
+		tar \
+		dpkg \
+		findutils \
+		tini \
+		wget
 
 COPY --from=gosu /gosu /usr/local/bin/
 
