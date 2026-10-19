@@ -871,9 +871,15 @@ def displayPipelineSummaryReport() {
     echo String.format("  %-18s %-12s %-18s %-18s %s", "Distribution", "Format", "Packages Built", "Size Validation", "Status")
 
     def totalBuilt = 0
-    def totalExpected = DISTS_TO_BUILD.size() * 2
+    // Expected binary packages per distro: RHEL builds jdk, jre and jre-headless; the others build jdk and jre
+    def expectedPerDist = ['rhel': 3]
+    def totalExpected = 0
+    for (String d : DISTS_TO_BUILD) {
+        totalExpected += expectedPerDist.get(d, 2)
+    }
 
     DISTS_TO_BUILD.each { dist ->
+        def expected = expectedPerDist.get(dist, 2)
         def format = (dist == 'alpine') ? '.apk' : (dist == 'debian') ? '.deb' : '.rpm'
         def distLabel = (dist == 'alpine') ? 'Alpine' : (dist == 'debian') ? 'Debian/Ubuntu' : (dist == 'rhel') ? 'RHEL/CentOS' : 'SUSE/openSUSE'
 
@@ -886,9 +892,9 @@ def displayPipelineSummaryReport() {
                         count++
                     } else if (dist == 'debian' && f.name.endsWith('.deb')) {
                         count++
-                    } else if (dist == 'rhel' && f.name.endsWith('.rpm') && (f.path.contains('/rhel/') || f.name.contains('.el') || f.name.contains('rhel'))) {
+                    } else if (dist == 'rhel' && f.name.endsWith('.rpm') && !f.name.endsWith('.src.rpm') && (f.path.contains('/rhel/') || f.name.contains('.el') || f.name.contains('rhel'))) {
                         count++
-                    } else if (dist == 'suse' && f.name.endsWith('.rpm') && (f.path.contains('/suse/') || f.name.contains('.sle') || f.name.contains('.suse') || f.name.contains('.opensuse'))) {
+                    } else if (dist == 'suse' && f.name.endsWith('.rpm') && !f.name.endsWith('.src.rpm') && (f.path.contains('/suse/') || f.name.contains('.sle') || f.name.contains('.suse') || f.name.contains('.opensuse'))) {
                         count++
                     }
                 }
@@ -898,15 +904,15 @@ def displayPipelineSummaryReport() {
         }
 
         totalBuilt += count
-        def statusStr = (count >= 2) ? "[ PASS ]" : (count > 0) ? "[ WARN ]" : "[ FAIL ]"
+        def statusStr = (count >= expected) ? "[ PASS ]" : (count > 0) ? "[ WARN ]" : "[ FAIL ]"
         def validStr = (count > 0) ? "Passed" : "Missing"
 
-        if (count < 2) {
+        if (count < expected) {
             overallPass = false
             actionItems << "Check ${distLabel} container packaging build logs for errors."
         }
 
-        echo String.format("  %-18s %-12s %-18s %-18s %s", distLabel, format, "${count} / 2", validStr, statusStr)
+        echo String.format("  %-18s %-12s %-18s %-18s %s", distLabel, format, "${count} / ${expected}", validStr, statusStr)
     }
     echo dash
     def buildVerdict = (totalBuilt >= totalExpected) ? "[ PASS ]" : "[ FAIL ]"
@@ -1022,20 +1028,20 @@ def displayPipelineSummaryReport() {
         def cveNeg = 0
 
         if (scanSummaryText) {
-            scanSummaryText.eachLine { line ->
-                if (line.contains("Total Packages Scanned:")) {
-                    def m = (line =~ /Total Packages Scanned:\s+(\d+)/)
-                    if (m) scannedCount = m[0][1] as int
+            // Parse global-summary.txt: each "  - <package> (Distro: ...)" line under PACKAGES SCANNED is one
+            // package, and the "│ TOTAL │ CRIT │ HIGH │ MEDIUM │ LOW │ NEGLIGIBLE │ TOTAL │" row holds the counts.
+            // Use a plain for loop: String.eachLine is not CPS-safe.
+            for (String line : scanSummaryText.split('\n')) {
+                if (line =~ /^\s+- .+\(Distro: /) {
+                    scannedCount++
                 }
-                if (line.contains("CRITICAL") && line.contains("|")) {
-                    def m = (line =~ /\|\s+(\d+)\s+\|\s+(\d+)\s+\|\s+(\d+)\s+\|\s+(\d+)\s+\|\s+(\d+)/)
-                    if (m) {
-                        cveCrit = m[0][1] as int
-                        cveHigh = m[0][2] as int
-                        cveMed  = m[0][3] as int
-                        cveLow  = m[0][4] as int
-                        cveNeg  = m[0][5] as int
-                    }
+                def m = (line =~ /│\s*TOTAL\s*│\s*(\d+)\s*│\s*(\d+)\s*│\s*(\d+)\s*│\s*(\d+)\s*│\s*(\d+)\s*│/)
+                if (m.find()) {
+                    cveCrit = m.group(1) as int
+                    cveHigh = m.group(2) as int
+                    cveMed  = m.group(3) as int
+                    cveLow  = m.group(4) as int
+                    cveNeg  = m.group(5) as int
                 }
             }
         } else {
@@ -1050,7 +1056,11 @@ def displayPipelineSummaryReport() {
 
         def scanVerdict = "[ PASS ]"
         def scanMsg = "CLEAN (No actionable vulnerabilities)"
-        if (cveCrit > 0 || cveHigh > 0) {
+        if (scannedCount == 0) {
+            scanVerdict = "[ WARN ]"
+            scanMsg = "NO PACKAGES SCANNED"
+            actionItems << "Grype scan produced no results; check the Grype Vulnerability Scan stage log."
+        } else if (cveCrit > 0 || cveHigh > 0) {
             scanVerdict = "[ WARN ]"
             scanMsg = "WARNINGS DETECTED (Findings >= HIGH)"
             actionItems << "Review ${cveCrit + cveHigh} Critical/High vulnerability finding(s) from Grype scan report."

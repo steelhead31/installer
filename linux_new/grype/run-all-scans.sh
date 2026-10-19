@@ -63,7 +63,7 @@ echo "==========================================================="
 FINAL_EXIT=0
 
 # 1. Discover and scan Alpine APKs
-mapfile -t APK_FILES < <(find "$SEARCH_DIR" -type f -name "*.apk" ! -name "*.src.apk" 2>/dev/null | sort || true)
+mapfile -t APK_FILES < <(find "$SEARCH_DIR" -type f -not -path "*/packageTest/*" -name "*.apk" ! -name "*.src.apk" 2>/dev/null | sort || true)
 if [[ ${#APK_FILES[@]} -gt 0 ]]; then
     echo ""
     echo ">> Scanning ${#APK_FILES[@]} Alpine APK package(s)..."
@@ -78,7 +78,7 @@ if [[ ${#APK_FILES[@]} -gt 0 ]]; then
 fi
 
 # 2. Discover and scan Debian/Ubuntu DEBs
-mapfile -t DEB_FILES < <(find "$SEARCH_DIR" -type f -name "*.deb" 2>/dev/null | sort || true)
+mapfile -t DEB_FILES < <(find "$SEARCH_DIR" -type f -not -path "*/packageTest/*" -name "*.deb" 2>/dev/null | sort || true)
 if [[ ${#DEB_FILES[@]} -gt 0 ]]; then
     echo ""
     echo ">> Scanning ${#DEB_FILES[@]} Debian/Ubuntu DEB package(s)..."
@@ -94,7 +94,7 @@ if [[ ${#DEB_FILES[@]} -gt 0 ]]; then
 fi
 
 # 3. Discover and scan RHEL RPMs (exclude SUSE subdirectories)
-mapfile -t RHEL_RPM_FILES < <(find "$SEARCH_DIR" -type f -name "*.rpm" ! -name "*.src.rpm" 2>/dev/null | grep -v "/suse/" | grep -v "sles" | sort || true)
+mapfile -t RHEL_RPM_FILES < <(find "$SEARCH_DIR" -type f -not -path "*/packageTest/*" -name "*.rpm" ! -name "*.src.rpm" 2>/dev/null | grep -v "/suse/" | grep -v "sles" | sort || true)
 if [[ ${#RHEL_RPM_FILES[@]} -gt 0 ]]; then
     echo ""
     echo ">> Scanning ${#RHEL_RPM_FILES[@]} RHEL RPM package(s)..."
@@ -110,7 +110,7 @@ if [[ ${#RHEL_RPM_FILES[@]} -gt 0 ]]; then
 fi
 
 # 4. Discover and scan SUSE RPMs
-mapfile -t SUSE_RPM_FILES < <(find "$SEARCH_DIR" -type f -name "*.rpm" ! -name "*.src.rpm" 2>/dev/null | grep -E "(/suse/|sles)" | sort || true)
+mapfile -t SUSE_RPM_FILES < <(find "$SEARCH_DIR" -type f -not -path "*/packageTest/*" -name "*.rpm" ! -name "*.src.rpm" 2>/dev/null | grep -E "(/suse/|sles)" | sort || true)
 if [[ ${#SUSE_RPM_FILES[@]} -gt 0 ]]; then
     echo ""
     echo ">> Scanning ${#SUSE_RPM_FILES[@]} SUSE RPM package(s)..."
