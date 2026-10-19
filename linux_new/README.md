@@ -8,10 +8,11 @@ The pipeline is driven by a Jenkins [`Jenkinsfile`](Jenkinsfile) which orchestra
 2. **Process Parameters** — parse release version tags, derive target architectures, and set dynamic build agent node labels
 3. **Validate Artifacts** — download upstream Temurin binary and SHA-256 checksum files from GitHub releases and verify checksum integrity
 4. **Generate Spec File** — render Jinja2 templates via [`generate_spec.py`](generate_spec.py) to produce distribution-specific build specifications (`.spec`, `APKBUILD`, `control`, `rules`, `changelog`)
-5. **Build & Archive Package** — run the packaging toolchain inside Docker containers across dedicated build nodes, execute **Grype vulnerability scanning**, and archive packages and security reports in Jenkins
-6. **Publish Packages** — upload signed packages to Artifactory via JFrog CLI (`jf`)
-7. **Verify Publication** — perform automated HTTP `HEAD` verification checks against Artifactory endpoints to confirm every published package is accessible
-8. **Downstream Trigger** — trigger `publish_linux_pkg_src` for packaging source repository synchronization
+5. **Build & Archive Package** — run the packaging toolchain inside Docker containers across dedicated build nodes, and archive built packages
+6. **Grype Vulnerability Scan** — execute automated, containerized **Grype vulnerability scanning** across all built packages on the target controller node (`NODE_LABEL`), archiving security reports (JSON, SARIF, Markdown, Plain Text)
+7. **Publish Packages** — upload signed packages to Artifactory via JFrog CLI (`jf`)
+8. **Verify Publication** — perform automated HTTP `HEAD` verification checks against Artifactory endpoints to confirm every published package is accessible
+9. **Downstream Trigger** — trigger `publish_linux_pkg_src` for packaging source repository synchronization
 
 The published packages are available at: https://packages.adoptium.net/ui/packages
 
@@ -57,9 +58,11 @@ Automated content-based vulnerability scanning is integrated via [Anchore Grype]
 
 ### Scanner Assets (`linux_new/grype/`)
 
+* [`grype/Dockerfile`](grype/Dockerfile): Self-contained UBI 9 minimal scanner container installing Grype, archive extraction tools (`binutils`, `cpio`, `rpm`, `tar`, `xz`), and Python 3.
+* [`grype/run-all-scans.sh`](grype/run-all-scans.sh): Unified runner that discovers all package types (`.apk`, `.deb`, `.rpm`) across build directories and generates aggregated reports.
 * [`grype/grype-linux-scan.sh`](grype/grype-linux-scan.sh): Orchestrates DEB and RPM scans, automatically detecting package format and distro context.
 * [`grype/grype-apk-scan.sh`](grype/grype-apk-scan.sh): Orchestrates Alpine APK scans.
-* [`grype/grype-summary-report.py`](grype/grype-summary-report.py): Parses Grype JSON outputs to produce consolidated Markdown (`summary.md`) and Plain Text (`summary.txt`) reports.
+* [`grype/grype-summary-report.py`](grype/grype-summary-report.py): Parses Grype JSON outputs to produce consolidated Markdown (`global-summary.md`) and Plain Text (`global-summary.txt`) reports.
 * **Configuration Files**:
   * [`.grype.yaml`](grype/.grype.yaml): Alpine APK scanning configuration.
   * [`.grype-ubuntu.yaml`](grype/.grype-ubuntu.yaml): Ubuntu/Debian DEB scanning configuration.

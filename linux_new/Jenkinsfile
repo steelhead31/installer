@@ -493,66 +493,55 @@ def validateArtifactsForDist(String dist, String ver) {
     echo "Artifact validation passed for ${dist}: ${builtFiles.length} file(s) checked."
 }
 
-// Helper function to run Grype vulnerability scan on generated packages
-def scanArtifactsForDist(String dist) {
+// Helper function to run Grype vulnerability scan across all built packages in a dedicated stage
+def runGrypeScan() {
+    echo "Entering : runGrypeScan()"
     if (!params.ENABLE_GRYPE_SCAN) {
         echo "Grype vulnerability scanning is disabled (ENABLE_GRYPE_SCAN = false)"
         return
     }
 
-    echo "Running Grype vulnerability scan for ${dist}"
-    def outDir = "build/grype-results-${dist}"
+    cleanWs()
+    unstash "installercode-${env.BUILD_NUMBER}"
+
+    // Retrieve built packages from the Build & Archive Package stage
+    copyArtifacts projectName: "${env.JOB_NAME}",
+        selector: specific("${env.BUILD_NUMBER}"),
+        filter: '**/build/ospackage/*'
+
+    def outDir = "build/grype-results"
     sh "mkdir -p ${outDir}"
 
-    def scanScript = (dist == 'alpine') ? './grype/grype-apk-scan.sh' : './grype/grype-linux-scan.sh'
-    if (!fileExists(scanScript)) {
-        echo "WARNING: Scan script not found at ${scanScript}, skipping scan."
-        return
+    def scanStatus = 0
+
+    // Check if Docker is available to run containerized scan
+    def dockerAvailable = (sh(script: 'docker --version', returnStatus: true) == 0)
+    if (dockerAvailable && fileExists('./grype/Dockerfile')) {
+        echo "Building Grype scanner Docker container image..."
+        sh "docker build -t temurin-grype-scanner -f ./grype/Dockerfile ./grype"
+
+        echo "Executing Grype scan inside container..."
+        def dockerCmd = "docker run --rm -u \$(id -u):\$(id -g) -v \${PWD}:/work -w /work temurin-grype-scanner --search-dir /work --output-dir /work/${outDir}"
+        scanStatus = sh(script: dockerCmd, returnStatus: true)
+    } else {
+        echo "Docker not available or Dockerfile missing; executing Grype scan directly on agent host..."
+        sh "chmod +x ./grype/*.sh"
+        def hostCmd = "./grype/run-all-scans.sh --search-dir . --output-dir ${outDir}"
+        scanStatus = sh(script: hostCmd, returnStatus: true)
     }
 
-    def filesToScan = []
-    if (dist == 'alpine') {
-        def apks = findFiles(glob: '**/build/ospackage/temurin-*j*.apk') + findFiles(glob: '**/build/ospackage/temurin-*src*.apk')
-        filesToScan = apks.collect { it.path }
-    } else if (dist == 'debian') {
-        def debs = findFiles(glob: '**/build/ospackage/temurin-*.deb')
-        filesToScan = debs.collect { it.path }
-    } else if (dist == 'rhel') {
-        def rpms = findFiles(glob: '**/rhel/build/ospackage/t*.rpm') + findFiles(glob: '**/rhel/build/ospackage/j*.rpm')
-        filesToScan = rpms.collect { it.path }
-    } else if (dist == 'suse') {
-        def rpms = findFiles(glob: '**/suse/build/ospackage/t*.rpm') + findFiles(glob: '**/suse/build/ospackage/j*.rpm')
-        filesToScan = rpms.collect { it.path }
-    }
+    // Archive all scan results
+    archiveArtifacts artifacts: "${outDir}/**",
+        onlyIfSuccessful: false,
+        allowEmptyArchive: true
 
-    if (filesToScan.isEmpty()) {
-        echo "WARNING: No package files found to scan for ${dist}."
-        return
-    }
-
-    def fileArgs = filesToScan.join(' ')
-    def distroFlag = ""
-    if (dist == 'alpine') {
-        distroFlag = "--distro alpine:3.24"
-    } else if (dist == 'debian') {
-        distroFlag = "--distro ubuntu:24.04"
-    } else if (dist == 'rhel') {
-        distroFlag = "--distro rhel:9"
-    } else if (dist == 'suse') {
-        distroFlag = "--distro sles:15"
-    }
-
-    // Informational mode: run scanner without failing the build if vulnerabilities are found
-    def scanCmd = "${scanScript} ${distroFlag} --output-dir ${outDir} ${fileArgs}"
-    echo "Scan command: ${scanCmd}"
-    def scanStatus = sh(script: scanCmd, returnStatus: true)
     if (scanStatus == 2) {
-        echo "WARNING: Grype scan completed with findings at or above threshold for ${dist} (exit code 2)."
+        echo "WARNING: Grype scan completed with findings at or above threshold (exit code 2)."
         currentBuild.result = 'UNSTABLE'
     } else if (scanStatus != 0) {
-        echo "WARNING: Grype scan encountered an execution/setup error for ${dist} (exit code ${scanStatus})."
+        echo "WARNING: Grype scan encountered an execution/setup error (exit code ${scanStatus})."
     } else {
-        echo "Grype scan completed cleanly for ${dist}."
+        echo "Grype scan completed cleanly across all built packages."
     }
 }
 
@@ -634,13 +623,11 @@ def buildAndArchiveDistPackages() {
                     }
                 }
 
-                // Run Grype vulnerability scan on built packages
-                scanArtifactsForDist(DistArrayElement)
             } catch (Exception ex) {
                 echo "Exception in build for ${DistArrayElement}: ${ex}"
                 throw ex
             } finally {
-                def basePattern = '**/build/ospackage/*,**/build/reports/**,**/build/grype-results*/**'
+                def basePattern = '**/build/ospackage/*,**/build/reports/**'
                 def archivePattern = ''
 
                 if (DistArrayElement == 'debian' && !params.SKIP_DEBIAN) {
@@ -1137,6 +1124,20 @@ stage('Build & Archive Package') {
     }
 }
 // Build And Archive Packages Stage - End
+// Grype Vulnerability Scan Stage - Start
+stage('Grype Vulnerability Scan') {
+    agent { label NODE_LABEL }
+    when {
+        expression { return !shouldSkipPipeline && !params.DRY_RUN && params.ENABLE_GRYPE_SCAN }
+    }
+    steps {
+        script {
+            echo "Entering Stage : Grype Vulnerability Scan"
+            runGrypeScan()
+        }
+    }
+}
+// Grype Vulnerability Scan Stage - End
 // Publish Packages Stage - Start
 stage('Publish Packages') {
     agent { label NODE_LABEL }
