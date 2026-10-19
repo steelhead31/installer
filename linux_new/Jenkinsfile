@@ -840,6 +840,240 @@ def collectPublishedArtifacts() {
 
     return pairs
 }
+
+// Helper function to display an aggregated pipeline summary report directly to the console log
+def displayPipelineSummaryReport() {
+    echo "Entering : displayPipelineSummaryReport()"
+
+    def sep = '=' * 80
+    def dash = '-' * 80
+
+    echo sep
+    echo "                    ECLIPSE TEMURIN LINUX INSTALLER PIPELINE"
+    echo "                            FINAL EXECUTION SUMMARY"
+    echo sep
+    echo "  TAG         : ${params.TAG}"
+    echo "  Architecture: ${arch}"
+    def distrosStr = DISTS_TO_BUILD.join(', ')
+    echo "  Distros     : ${distrosStr}"
+    echo sep
+    echo ""
+
+    def overallPass = true
+    def actionItems = []
+
+    // -------------------------------------------------------------------------
+    // [1/3] PACKAGE BUILD STATUS
+    // -------------------------------------------------------------------------
+    echo "[1/3] PACKAGE BUILD STATUS"
+    echo dash
+    echo String.format("  %-18s %-12s %-18s %-18s %s", "Distribution", "Format", "Packages Built", "Size Validation", "Status")
+
+    def totalBuilt = 0
+    def totalExpected = DISTS_TO_BUILD.size() * 2
+
+    DISTS_TO_BUILD.each { dist ->
+        def format = (dist == 'alpine') ? '.apk' : (dist == 'debian') ? '.deb' : '.rpm'
+        def distLabel = (dist == 'alpine') ? 'Alpine' : (dist == 'debian') ? 'Debian/Ubuntu' : (dist == 'rhel') ? 'RHEL/CentOS' : 'SUSE/openSUSE'
+
+        def count = 0
+        try {
+            def found = findFiles(glob: "**/build/ospackage/*${format}")
+            if (found != null) {
+                found.each { f ->
+                    if (dist == 'alpine' && f.name.endsWith('.apk')) {
+                        count++
+                    } else if (dist == 'debian' && f.name.endsWith('.deb')) {
+                        count++
+                    } else if (dist == 'rhel' && f.name.endsWith('.rpm') && (f.path.contains('/rhel/') || f.name.contains('.el') || f.name.contains('rhel'))) {
+                        count++
+                    } else if (dist == 'suse' && f.name.endsWith('.rpm') && (f.path.contains('/suse/') || f.name.contains('.sle') || f.name.contains('.suse') || f.name.contains('.opensuse'))) {
+                        count++
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // fallback
+        }
+
+        totalBuilt += count
+        def statusStr = (count >= 2) ? "[ PASS ]" : (count > 0) ? "[ WARN ]" : "[ FAIL ]"
+        def validStr = (count > 0) ? "Passed" : "Missing"
+
+        if (count < 2) {
+            overallPass = false
+            actionItems << "Check ${distLabel} container packaging build logs for errors."
+        }
+
+        echo String.format("  %-18s %-12s %-18s %-18s %s", distLabel, format, "${count} / 2", validStr, statusStr)
+    }
+    echo dash
+    def buildVerdict = (totalBuilt >= totalExpected) ? "[ PASS ]" : "[ FAIL ]"
+    echo String.format("  Total Packages Built: %d / %d                                       %s", totalBuilt, totalExpected, buildVerdict)
+    echo ""
+
+    // -------------------------------------------------------------------------
+    // [2/3] PACKAGE PUBLICATION & REACHABILITY
+    // -------------------------------------------------------------------------
+    echo "[2/3] PACKAGE PUBLICATION & REACHABILITY"
+    echo dash
+
+    if (params.SKIP_UPLOAD || params.DRY_RUN) {
+        def reason = params.DRY_RUN ? "DRY_RUN enabled" : "SKIP_UPLOAD enabled"
+        echo "  Publication skipped (${reason})                                    [ SKIP ]"
+    } else {
+        echo String.format("  %-18s %-32s %-18s %s", "Repository Group", "Endpoint Verified", "Reachable / Total", "Status")
+
+        def pubPairs = []
+        try {
+            pubPairs = collectPublishedArtifacts()
+        } catch (Exception e) {
+            echo "  Unable to retrieve published artifacts list: ${e.message}"
+        }
+
+        def pubGroups = [:]
+        pubPairs.each { pair ->
+            def url = pair[0]
+            def code = '200'
+            try {
+                code = sh(script: "curl -o /dev/null --silent --head --write-out '%{http_code}' ${url}", returnStdout: true).trim()
+            } catch (Exception ignored) {
+                code = '000'
+            }
+
+            def group = 'Other'
+            def endpoint = 'adoptium-repo'
+            if (url.contains('/deb/')) {
+                group = 'Debian (deb)'
+                endpoint = 'adoptium-deb/dists/stable'
+            } else if (url.contains('/apk/')) {
+                group = 'Alpine (apk)'
+                endpoint = 'adoptium-alpine/v3.20/main'
+            } else if (url.contains('/opensuse/') || url.contains('/sles/')) {
+                group = 'SUSE (rpm)'
+                endpoint = 'adoptium-rpm/opensuse/15.6'
+            } else if (url.contains('/rhel/') || url.contains('/centos/') || url.contains('/rocky/') || url.contains('/fedora/') || url.contains('/oraclelinux/') || url.contains('/amazonlinux/')) {
+                group = 'RHEL (rpm)'
+                endpoint = 'adoptium-rpm/rhel/9'
+            }
+
+            if (!pubGroups.containsKey(group)) {
+                pubGroups[group] = [endpoint: endpoint, passed: [], failed: []]
+            }
+            if (code == '200') {
+                pubGroups[group].passed << url
+            } else {
+                pubGroups[group].failed << [url, code]
+            }
+        }
+
+        def totalPubChecked = pubPairs.size()
+        def totalPubPassed = 0
+        def totalPubFailed = 0
+
+        pubGroups.each { groupName, data ->
+            def gPass = data.passed.size()
+            def gFail = data.failed.size()
+            def gTotal = gPass + gFail
+            totalPubPassed += gPass
+            totalPubFailed += gFail
+            def gStatus = (gFail == 0 && gTotal > 0) ? "[ PASS ]" : "[ FAIL ]"
+            echo String.format("  %-18s %-32s %-18s %s", groupName, data.endpoint, "${gPass} / ${gTotal}", gStatus)
+        }
+        echo dash
+        def pubVerdict = (totalPubFailed == 0 && totalPubChecked > 0) ? "[ PASS ]" : (totalPubChecked == 0) ? "[ WARN ]" : "[ FAIL ]"
+        echo String.format("  Total Published Artifacts Verified: %d / %d                         %s", totalPubPassed, totalPubChecked, pubVerdict)
+
+        if (totalPubFailed > 0) {
+            overallPass = false
+            echo ""
+            echo "  Publication Failures:"
+            pubGroups.each { groupName, data ->
+                data.failed.each { f ->
+                    echo "    - FAIL [${groupName}] HTTP ${f[1]}: ${f[0]}"
+                    actionItems << "Check Artifactory permissions and upload logs for failed ${groupName} artifact(s)."
+                }
+            }
+        }
+    }
+    echo ""
+
+    // -------------------------------------------------------------------------
+    // [3/3] GRYPE SECURITY VULNERABILITY SCAN
+    // -------------------------------------------------------------------------
+    echo "[3/3] GRYPE SECURITY VULNERABILITY SCAN"
+    echo dash
+
+    if (!params.ENABLE_GRYPE_SCAN) {
+        echo "  Grype scanning disabled (ENABLE_GRYPE_SCAN = false)               [ SKIP ]"
+    } else {
+        def summaryFile = "build/grype-results/global-summary.txt"
+        def scanSummaryText = ""
+        if (fileExists(summaryFile)) {
+            scanSummaryText = readFile(summaryFile)
+        }
+
+        def scannedCount = 0
+        def cveCrit = 0
+        def cveHigh = 0
+        def cveMed = 0
+        def cveLow = 0
+        def cveNeg = 0
+
+        if (scanSummaryText) {
+            scanSummaryText.eachLine { line ->
+                if (line.contains("Total Packages Scanned:")) {
+                    def m = (line =~ /Total Packages Scanned:\s+(\d+)/)
+                    if (m) scannedCount = m[0][1] as int
+                }
+                if (line.contains("CRITICAL") && line.contains("|")) {
+                    def m = (line =~ /\|\s+(\d+)\s+\|\s+(\d+)\s+\|\s+(\d+)\s+\|\s+(\d+)\s+\|\s+(\d+)/)
+                    if (m) {
+                        cveCrit = m[0][1] as int
+                        cveHigh = m[0][2] as int
+                        cveMed  = m[0][3] as int
+                        cveLow  = m[0][4] as int
+                        cveNeg  = m[0][5] as int
+                    }
+                }
+            }
+        } else {
+            def jsonFiles = findFiles(glob: 'build/grype-results/*.json')
+            scannedCount = (jsonFiles != null) ? jsonFiles.length : 0
+        }
+
+        echo "  Packages Scanned   : ${scannedCount}"
+        echo "  Fail-On Threshold  : HIGH / CRITICAL"
+        echo "  Findings Breakdown : ${cveCrit} Critical, ${cveHigh} High, ${cveMed} Medium, ${cveLow} Low, ${cveNeg} Negligible"
+        echo dash
+
+        def scanVerdict = "[ PASS ]"
+        def scanMsg = "CLEAN (No actionable vulnerabilities)"
+        if (cveCrit > 0 || cveHigh > 0) {
+            scanVerdict = "[ WARN ]"
+            scanMsg = "WARNINGS DETECTED (Findings >= HIGH)"
+            actionItems << "Review ${cveCrit + cveHigh} Critical/High vulnerability finding(s) from Grype scan report."
+        }
+        echo "  Security Scan Verdict: ${scanMsg.padRight(50)} ${scanVerdict}"
+    }
+
+    echo ""
+    echo sep
+    if (overallPass && actionItems.isEmpty()) {
+        echo "  OVERALL PIPELINE VERDICT: [ SUCCESS ]"
+        echo "  All requested packages built, verified in Artifactory, and passed security scan."
+    } else {
+        echo "  OVERALL PIPELINE VERDICT: [ FAILED / UNSTABLE ]"
+        if (!actionItems.isEmpty()) {
+            echo "  Action Required:"
+            actionItems.unique().eachWithIndex { item, idx ->
+                echo "    ${idx + 1}. ${item}"
+            }
+        }
+    }
+    echo sep
+    echo ""
+}
 // Function Definitions End
 
 /* Pipeline Declaration */
@@ -1234,12 +1468,27 @@ stage('Verify Publication') {
             echo sep
 
             if (totalFailed > 0) {
-                error("Publication verification failed: ${totalFailed} artifact(s) not reachable in Artifactory. See summary above.")
+                echo "WARNING: Publication verification detected ${totalFailed} unreachable artifact(s)."
+                currentBuild.result = 'FAILURE'
             }
         }
     }
 }
 // Verify Publication Stage - End
+// Pipeline Summary Report Stage - Start
+stage('Pipeline Summary Report') {
+    agent { label NODE_LABEL }
+    when {
+        expression { return !shouldSkipPipeline }
+    }
+    steps {
+        script {
+            echo "Entering Stage : Pipeline Summary Report"
+            displayPipelineSummaryReport()
+        }
+    }
+}
+// Pipeline Summary Report Stage - End
 // Stage Definition - End
     }
     // Housekeeping + Post Build
