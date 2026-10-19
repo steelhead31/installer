@@ -102,7 +102,7 @@ def collect_reports(input_paths):
     for p in input_paths:
         path_obj = Path(p)
         if path_obj.is_dir():
-            for f in sorted(path_obj.glob("*.json")):
+            for f in sorted(path_obj.rglob("*.json")):
                 if not f.name.endswith(".sarif.json"):
                     json_files.append(f)
         elif path_obj.is_file():

@@ -1039,7 +1039,7 @@ def displayPipelineSummaryReport() {
                 }
             }
         } else {
-            def jsonFiles = findFiles(glob: 'build/grype-results/*.json')
+            def jsonFiles = findFiles(glob: 'build/grype-results/**/*.json')
             scannedCount = (jsonFiles != null) ? jsonFiles.length : 0
         }
 
@@ -1485,6 +1485,11 @@ stage('Pipeline Summary Report') {
     steps {
         script {
             echo "Entering Stage : Pipeline Summary Report"
+            // This stage runs on a fresh workspace, so retrieve the built packages and Grype results first
+            copyArtifacts projectName: "${env.JOB_NAME}",
+                selector: specific("${env.BUILD_NUMBER}"),
+                filter: '**/build/ospackage/*,build/grype-results/**',
+                optional: true
             displayPipelineSummaryReport()
         }
     }
