@@ -3,16 +3,29 @@ ARG CONTAINER_REGISTRY=""
 FROM ${CONTAINER_REGISTRY}tianon/gosu AS gosu
 FROM ${CONTAINER_REGISTRY}opensuse/leap:15.6
 
-RUN zypper --gpg-auto-import-keys refresh && zypper update -y && zypper install -y rpm-build \
-	rpm-devel \
-	rpmdevtools \
-	rpmlint \
-	dirmngr \
-	tar \
-	dpkg \
-	findutils \
-	tini \
-	wget
+# Retry on transient mirror/digest failures; there is no TTY in a build, so
+# run zypper non-interactively and clear cached metadata between attempts.
+RUN set -e; \
+	for attempt in 1 2 3; do \
+		if zypper --non-interactive --gpg-auto-import-keys refresh \
+			&& zypper --non-interactive update -y \
+			&& zypper --non-interactive install -y rpm-build \
+				rpm-devel \
+				rpmdevtools \
+				rpmlint \
+				dirmngr \
+				tar \
+				dpkg \
+				findutils \
+				tini \
+				wget; then \
+			exit 0; \
+		fi; \
+		echo "zypper attempt ${attempt} failed, cleaning metadata and retrying" >&2; \
+		zypper --non-interactive clean --all || true; \
+		sleep $((attempt * 10)); \
+	done; \
+	exit 1
 
 COPY --from=gosu /gosu /usr/local/bin/
 
