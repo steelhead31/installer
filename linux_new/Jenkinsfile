@@ -849,26 +849,32 @@ def displayPipelineSummaryReport() {
     def sep = '=' * 80
     def dash = '-' * 80
 
-    echo sep
-    echo "                    ECLIPSE TEMURIN LINUX INSTALLER PIPELINE"
-    echo "                            FINAL EXECUTION SUMMARY"
-    echo sep
-    echo "  TAG         : ${params.TAG}"
-    echo "  Architecture: ${arch}"
+    // Collect every report line and print them with a single echo at the end, so the
+    // report appears as one continuous block instead of one "[Pipeline] echo" per line.
+    def rpt = []
+
+    rpt << sep
+    rpt << "                    ECLIPSE TEMURIN LINUX INSTALLER PIPELINE"
+    rpt << "                            FINAL EXECUTION SUMMARY"
+    rpt << sep
+    rpt << "  TAG         : ${params.TAG}"
+    rpt << "  Architecture: ${arch}"
     def distrosStr = DISTS_TO_BUILD.join(', ')
-    echo "  Distros     : ${distrosStr}"
-    echo sep
-    echo ""
+    rpt << "  Distros     : ${distrosStr}"
+    rpt << sep
+    rpt << ""
 
     def overallPass = true
     def actionItems = []
+    def publicationVerified = false
+    def scanPassed = false
 
     // -------------------------------------------------------------------------
     // [1/3] PACKAGE BUILD STATUS
     // -------------------------------------------------------------------------
-    echo "[1/3] PACKAGE BUILD STATUS"
-    echo dash
-    echo String.format("  %-18s %-12s %-18s %-18s %s", "Distribution", "Format", "Packages Built", "Size Validation", "Status")
+    rpt << "[1/3] PACKAGE BUILD STATUS"
+    rpt << dash
+    rpt << String.format("  %-18s %-12s %-18s %-18s %s", "Distribution", "Format", "Packages Built", "Size Validation", "Status")
 
     def totalBuilt = 0
     // Expected binary packages per distro: RHEL builds jdk, jre and jre-headless; the others build jdk and jre
@@ -912,30 +918,30 @@ def displayPipelineSummaryReport() {
             actionItems << "Check ${distLabel} container packaging build logs for errors."
         }
 
-        echo String.format("  %-18s %-12s %-18s %-18s %s", distLabel, format, "${count} / ${expected}", validStr, statusStr)
+        rpt << String.format("  %-18s %-12s %-18s %-18s %s", distLabel, format, "${count} / ${expected}", validStr, statusStr)
     }
-    echo dash
+    rpt << dash
     def buildVerdict = (totalBuilt >= totalExpected) ? "[ PASS ]" : "[ FAIL ]"
-    echo String.format("  Total Packages Built: %d / %d                                       %s", totalBuilt, totalExpected, buildVerdict)
-    echo ""
+    rpt << String.format("  Total Packages Built: %d / %d                                       %s", totalBuilt, totalExpected, buildVerdict)
+    rpt << ""
 
     // -------------------------------------------------------------------------
     // [2/3] PACKAGE PUBLICATION & REACHABILITY
     // -------------------------------------------------------------------------
-    echo "[2/3] PACKAGE PUBLICATION & REACHABILITY"
-    echo dash
+    rpt << "[2/3] PACKAGE PUBLICATION & REACHABILITY"
+    rpt << dash
 
     if (params.SKIP_UPLOAD || params.DRY_RUN) {
         def reason = params.DRY_RUN ? "DRY_RUN enabled" : "SKIP_UPLOAD enabled"
-        echo "  Publication skipped (${reason})                                    [ SKIP ]"
+        rpt << "  Publication skipped (${reason})                                    [ SKIP ]"
     } else {
-        echo String.format("  %-18s %-32s %-18s %s", "Repository Group", "Endpoint Verified", "Reachable / Total", "Status")
+        rpt << String.format("  %-18s %-32s %-18s %s", "Repository Group", "Endpoint Verified", "Reachable / Total", "Status")
 
         def pubPairs = []
         try {
             pubPairs = collectPublishedArtifacts()
         } catch (Exception e) {
-            echo "  Unable to retrieve published artifacts list: ${e.message}"
+            rpt << "  Unable to retrieve published artifacts list: ${e.message}"
         }
 
         def pubGroups = [:]
@@ -985,34 +991,35 @@ def displayPipelineSummaryReport() {
             totalPubPassed += gPass
             totalPubFailed += gFail
             def gStatus = (gFail == 0 && gTotal > 0) ? "[ PASS ]" : "[ FAIL ]"
-            echo String.format("  %-18s %-32s %-18s %s", groupName, data.endpoint, "${gPass} / ${gTotal}", gStatus)
+            rpt << String.format("  %-18s %-32s %-18s %s", groupName, data.endpoint, "${gPass} / ${gTotal}", gStatus)
         }
-        echo dash
+        rpt << dash
         def pubVerdict = (totalPubFailed == 0 && totalPubChecked > 0) ? "[ PASS ]" : (totalPubChecked == 0) ? "[ WARN ]" : "[ FAIL ]"
-        echo String.format("  Total Published Artifacts Verified: %d / %d                         %s", totalPubPassed, totalPubChecked, pubVerdict)
+        rpt << String.format("  Total Published Artifacts Verified: %d / %d                         %s", totalPubPassed, totalPubChecked, pubVerdict)
+        publicationVerified = (totalPubFailed == 0 && totalPubChecked > 0)
 
         if (totalPubFailed > 0) {
             overallPass = false
-            echo ""
-            echo "  Publication Failures:"
+            rpt << ""
+            rpt << "  Publication Failures:"
             pubGroups.each { groupName, data ->
                 data.failed.each { f ->
-                    echo "    - FAIL [${groupName}] HTTP ${f[1]}: ${f[0]}"
+                    rpt << "    - FAIL [${groupName}] HTTP ${f[1]}: ${f[0]}"
                     actionItems << "Check Artifactory permissions and upload logs for failed ${groupName} artifact(s)."
                 }
             }
         }
     }
-    echo ""
+    rpt << ""
 
     // -------------------------------------------------------------------------
     // [3/3] GRYPE SECURITY VULNERABILITY SCAN
     // -------------------------------------------------------------------------
-    echo "[3/3] GRYPE SECURITY VULNERABILITY SCAN"
-    echo dash
+    rpt << "[3/3] GRYPE SECURITY VULNERABILITY SCAN"
+    rpt << dash
 
     if (!params.ENABLE_GRYPE_SCAN) {
-        echo "  Grype scanning disabled (ENABLE_GRYPE_SCAN = false)               [ SKIP ]"
+        rpt << "  Grype scanning disabled (ENABLE_GRYPE_SCAN = false)               [ SKIP ]"
     } else {
         def summaryFile = "build/grype-results/global-summary.txt"
         def scanSummaryText = ""
@@ -1049,10 +1056,10 @@ def displayPipelineSummaryReport() {
             scannedCount = (jsonFiles != null) ? jsonFiles.length : 0
         }
 
-        echo "  Packages Scanned   : ${scannedCount}"
-        echo "  Fail-On Threshold  : HIGH / CRITICAL"
-        echo "  Findings Breakdown : ${cveCrit} Critical, ${cveHigh} High, ${cveMed} Medium, ${cveLow} Low, ${cveNeg} Negligible"
-        echo dash
+        rpt << "  Packages Scanned   : ${scannedCount}"
+        rpt << "  Fail-On Threshold  : HIGH / CRITICAL"
+        rpt << "  Findings Breakdown : ${cveCrit} Critical, ${cveHigh} High, ${cveMed} Medium, ${cveLow} Low, ${cveNeg} Negligible"
+        rpt << dash
 
         def scanVerdict = "[ PASS ]"
         def scanMsg = "CLEAN (No actionable vulnerabilities)"
@@ -1065,25 +1072,46 @@ def displayPipelineSummaryReport() {
             scanMsg = "WARNINGS DETECTED (Findings >= HIGH)"
             actionItems << "Review ${cveCrit + cveHigh} Critical/High vulnerability finding(s) from Grype scan report."
         }
-        echo "  Security Scan Verdict: ${scanMsg.padRight(50)} ${scanVerdict}"
+        rpt << "  Security Scan Verdict: ${scanMsg.padRight(50)} ${scanVerdict}"
+        scanPassed = (scanVerdict == "[ PASS ]")
     }
 
-    echo ""
-    echo sep
+    rpt << ""
+    rpt << sep
     if (overallPass && actionItems.isEmpty()) {
-        echo "  OVERALL PIPELINE VERDICT: [ SUCCESS ]"
-        echo "  All requested packages built, verified in Artifactory, and passed security scan."
+        rpt << "  OVERALL PIPELINE VERDICT: [ SUCCESS ]"
+        // Only claim what was actually done: publication and scanning can be skipped.
+        def done = ["built"]
+        if (publicationVerified) {
+            done << "verified in Artifactory"
+        }
+        if (scanPassed) {
+            done << "passed security scan"
+        }
+        def doneStr = (done.size() > 1) ? done.take(done.size() - 1).join(', ') + " and " + done.last() : done[0]
+        def skipped = []
+        if (!publicationVerified) {
+            skipped << "publication"
+        }
+        if (!scanPassed) {
+            skipped << "security scan"
+        }
+        rpt << "  All requested packages ${doneStr}."
+        if (!skipped.isEmpty()) {
+            rpt << "  Not performed: ${skipped.join(', ')}."
+        }
     } else {
-        echo "  OVERALL PIPELINE VERDICT: [ FAILED / UNSTABLE ]"
+        rpt << "  OVERALL PIPELINE VERDICT: [ FAILED / UNSTABLE ]"
         if (!actionItems.isEmpty()) {
-            echo "  Action Required:"
+            rpt << "  Action Required:"
             actionItems.unique().eachWithIndex { item, idx ->
-                echo "    ${idx + 1}. ${item}"
+                rpt << "    ${idx + 1}. ${item}"
             }
         }
     }
-    echo sep
-    echo ""
+    rpt << sep
+
+    echo "\n" + rpt.join('\n')
 }
 // Function Definitions End
 
