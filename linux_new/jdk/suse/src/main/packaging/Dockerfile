@@ -3,7 +3,7 @@ ARG CONTAINER_REGISTRY=""
 FROM ${CONTAINER_REGISTRY}tianon/gosu AS gosu
 FROM ${CONTAINER_REGISTRY}opensuse/leap:15.6
 
-RUN zypper update -y && zypper install -y rpm-build \
+RUN zypper --gpg-auto-import-keys refresh && zypper update -y && zypper install -y rpm-build \
 	rpm-devel \
 	rpmdevtools \
 	rpmlint \
