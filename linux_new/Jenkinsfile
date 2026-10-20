@@ -868,6 +868,8 @@ def displayPipelineSummaryReport() {
     def actionItems = []
     def publicationVerified = false
     def scanPassed = false
+    // Pad text to a fixed width so every status tag lands in the same column
+    def statusLine = { String text, String status -> String.format("%-71s %s", text, status) }
 
     // -------------------------------------------------------------------------
     // [1/3] PACKAGE BUILD STATUS
@@ -878,7 +880,8 @@ def displayPipelineSummaryReport() {
 
     def totalBuilt = 0
     // Expected binary packages per distro: RHEL builds jdk, jre and jre-headless; the others build jdk and jre
-    def expectedPerDist = ['rhel': 3]
+    // Alpine: parent, jdk, src and jre (the parent .apk is built by both the JDK and JRE builds, so it is counted once)
+    def expectedPerDist = ['rhel': 3, 'alpine': 4]
     def totalExpected = 0
     for (String d : DISTS_TO_BUILD) {
         totalExpected += expectedPerDist.get(d, 2)
@@ -889,25 +892,26 @@ def displayPipelineSummaryReport() {
         def format = (dist == 'alpine') ? '.apk' : (dist == 'debian') ? '.deb' : '.rpm'
         def distLabel = (dist == 'alpine') ? 'Alpine' : (dist == 'debian') ? 'Debian/Ubuntu' : (dist == 'rhel') ? 'RHEL/CentOS' : 'SUSE/openSUSE'
 
-        def count = 0
+        def seen = new HashSet()
         try {
             def found = findFiles(glob: "**/build/ospackage/*${format}")
             if (found != null) {
                 found.each { f ->
                     if (dist == 'alpine' && f.name.endsWith('.apk')) {
-                        count++
+                        seen << f.name
                     } else if (dist == 'debian' && f.name.endsWith('.deb')) {
-                        count++
+                        seen << f.name
                     } else if (dist == 'rhel' && f.name.endsWith('.rpm') && !f.name.endsWith('.src.rpm') && (f.path.contains('/rhel/') || f.name.contains('.el') || f.name.contains('rhel'))) {
-                        count++
+                        seen << f.name
                     } else if (dist == 'suse' && f.name.endsWith('.rpm') && !f.name.endsWith('.src.rpm') && (f.path.contains('/suse/') || f.name.contains('.sle') || f.name.contains('.suse') || f.name.contains('.opensuse'))) {
-                        count++
+                        seen << f.name
                     }
                 }
             }
         } catch (Exception e) {
             // fallback
         }
+        def count = seen.size()
 
         totalBuilt += count
         def statusStr = (count >= expected) ? "[ PASS ]" : (count > 0) ? "[ WARN ]" : "[ FAIL ]"
@@ -922,7 +926,7 @@ def displayPipelineSummaryReport() {
     }
     rpt << dash
     def buildVerdict = (totalBuilt >= totalExpected) ? "[ PASS ]" : "[ FAIL ]"
-    rpt << String.format("  Total Packages Built: %d / %d                                       %s", totalBuilt, totalExpected, buildVerdict)
+    rpt << statusLine(String.format("  Total Packages Built: %d / %d", totalBuilt, totalExpected), buildVerdict)
     rpt << ""
 
     // -------------------------------------------------------------------------
@@ -933,9 +937,9 @@ def displayPipelineSummaryReport() {
 
     if (params.SKIP_UPLOAD || params.DRY_RUN) {
         def reason = params.DRY_RUN ? "DRY_RUN enabled" : "SKIP_UPLOAD enabled"
-        rpt << "  Publication skipped (${reason})                                    [ SKIP ]"
+        rpt << statusLine("  Publication skipped (${reason})", "[ SKIP ]")
     } else {
-        rpt << String.format("  %-18s %-32s %-18s %s", "Repository Group", "Endpoint Verified", "Reachable / Total", "Status")
+        rpt << String.format("  %-18s %-31s %-18s %s", "Repository Group", "Endpoint Verified", "Reachable / Total", "Status")
 
         def pubPairs = []
         try {
@@ -991,11 +995,11 @@ def displayPipelineSummaryReport() {
             totalPubPassed += gPass
             totalPubFailed += gFail
             def gStatus = (gFail == 0 && gTotal > 0) ? "[ PASS ]" : "[ FAIL ]"
-            rpt << String.format("  %-18s %-32s %-18s %s", groupName, data.endpoint, "${gPass} / ${gTotal}", gStatus)
+            rpt << String.format("  %-18s %-31s %-18s %s", groupName, data.endpoint, "${gPass} / ${gTotal}", gStatus)
         }
         rpt << dash
         def pubVerdict = (totalPubFailed == 0 && totalPubChecked > 0) ? "[ PASS ]" : (totalPubChecked == 0) ? "[ WARN ]" : "[ FAIL ]"
-        rpt << String.format("  Total Published Artifacts Verified: %d / %d                         %s", totalPubPassed, totalPubChecked, pubVerdict)
+        rpt << statusLine(String.format("  Total Published Artifacts Verified: %d / %d", totalPubPassed, totalPubChecked), pubVerdict)
         publicationVerified = (totalPubFailed == 0 && totalPubChecked > 0)
 
         if (totalPubFailed > 0) {
@@ -1019,7 +1023,7 @@ def displayPipelineSummaryReport() {
     rpt << dash
 
     if (!params.ENABLE_GRYPE_SCAN) {
-        rpt << "  Grype scanning disabled (ENABLE_GRYPE_SCAN = false)               [ SKIP ]"
+        rpt << statusLine("  Grype scanning disabled (ENABLE_GRYPE_SCAN = false)", "[ SKIP ]")
     } else {
         def summaryFile = "build/grype-results/global-summary.txt"
         def scanSummaryText = ""
@@ -1072,7 +1076,7 @@ def displayPipelineSummaryReport() {
             scanMsg = "WARNINGS DETECTED (Findings >= HIGH)"
             actionItems << "Review ${cveCrit + cveHigh} Critical/High vulnerability finding(s) from Grype scan report."
         }
-        rpt << "  Security Scan Verdict: ${scanMsg.padRight(50)} ${scanVerdict}"
+        rpt << statusLine("  Security Scan Verdict: ${scanMsg}", scanVerdict)
         scanPassed = (scanVerdict == "[ PASS ]")
     }
 
