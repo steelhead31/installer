@@ -879,9 +879,9 @@ def displayPipelineSummaryReport() {
     rpt << String.format("  %-18s %-12s %-18s %-18s %s", "Distribution", "Format", "Packages Built", "Size Validation", "Status")
 
     def totalBuilt = 0
-    // Expected binary packages per distro: RHEL builds jdk, jre and jre-headless; the others build jdk and jre
-    // Alpine: parent, jdk, src and jre (the parent .apk is built by both the JDK and JRE builds, so it is counted once)
-    def expectedPerDist = ['rhel': 3, 'alpine': 4]
+    // Expected packages per distro (source RPMs included): RHEL = jdk, jre, jre-headless + 3 src.rpm; SUSE = jdk, jre + 2 src.rpm;
+    // Debian = jdk, jre; Alpine = parent, jdk, src, jre (the parent .apk is built by both the JDK and JRE builds, so it is counted once)
+    def expectedPerDist = ['rhel': 6, 'suse': 4, 'alpine': 4]
     def totalExpected = 0
     for (String d : DISTS_TO_BUILD) {
         totalExpected += expectedPerDist.get(d, 2)
@@ -901,9 +901,9 @@ def displayPipelineSummaryReport() {
                         seen.add(f.name)
                     } else if (dist == 'debian' && f.name.endsWith('.deb')) {
                         seen.add(f.name)
-                    } else if (dist == 'rhel' && f.name.endsWith('.rpm') && !f.name.endsWith('.src.rpm') && (f.path.contains('/rhel/') || f.name.contains('.el') || f.name.contains('rhel'))) {
+                    } else if (dist == 'rhel' && f.name.endsWith('.rpm') && (f.path.contains('/rhel/') || f.name.contains('.el') || f.name.contains('rhel'))) {
                         seen.add(f.name)
-                    } else if (dist == 'suse' && f.name.endsWith('.rpm') && !f.name.endsWith('.src.rpm') && (f.path.contains('/suse/') || f.name.contains('.sle') || f.name.contains('.suse') || f.name.contains('.opensuse'))) {
+                    } else if (dist == 'suse' && f.name.endsWith('.rpm') && (f.path.contains('/suse/') || f.name.contains('.sle') || f.name.contains('.suse') || f.name.contains('.opensuse'))) {
                         seen.add(f.name)
                     }
                 }
