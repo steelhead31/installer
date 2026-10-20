@@ -892,7 +892,7 @@ def displayPipelineSummaryReport() {
         def format = (dist == 'alpine') ? '.apk' : (dist == 'debian') ? '.deb' : '.rpm'
         def distLabel = (dist == 'alpine') ? 'Alpine' : (dist == 'debian') ? 'Debian/Ubuntu' : (dist == 'rhel') ? 'RHEL/CentOS' : 'SUSE/openSUSE'
 
-        def seen = new HashSet()
+        def seen = new TreeSet()
         try {
             def found = findFiles(glob: "**/build/ospackage/*${format}")
             if (found != null) {
@@ -923,6 +923,9 @@ def displayPipelineSummaryReport() {
         }
 
         rpt << String.format("  %-18s %-12s %-18s %-18s %s", distLabel, format, "${count} / ${expected}", validStr, statusStr)
+        for (String pkgName : seen) {
+            rpt << "      - ${pkgName}"
+        }
     }
     rpt << dash
     def buildVerdict = (totalBuilt >= totalExpected) ? "[ PASS ]" : "[ FAIL ]"
